@@ -1,0 +1,103 @@
+"use server";
+
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+const productSchema = z.object({
+  sku: z.string().min(1, "SKU is required"),
+  name: z.string().min(1, "Name is required"),
+  category: z.string().optional().or(z.literal("")),
+  unit_cost: z.coerce.number().min(0).optional(),
+  unit_price: z.coerce.number().min(0).optional(),
+  discontinued: z.coerce.boolean().optional(),
+  current_stock: z.coerce.number().min(0).default(0),
+  reserved_stock: z.coerce.number().min(0).default(0),
+  incoming_qty: z.coerce.number().min(0).default(0),
+  eta: z.string().optional().or(z.literal("")),
+  low_stock_threshold: z.coerce.number().min(0).default(10),
+});
+
+function parseProductForm(formData: FormData) {
+  const raw = Object.fromEntries(formData.entries());
+  // Checkbox inputs are absent from FormData when unchecked.
+  raw.discontinued = formData.has("discontinued") ? "true" : "false";
+  const parsed = productSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(parsed.error.errors.map((e) => e.message).join(", "));
+  }
+  return parsed.data;
+}
+
+export async function createProduct(formData: FormData) {
+  const supabase = createClient();
+  const data = parseProductForm(formData);
+
+  const { data: product, error } = await supabase
+    .from("products")
+    .insert({
+      sku: data.sku,
+      name: data.name,
+      category: data.category || null,
+      unit_cost: data.unit_cost ?? null,
+      unit_price: data.unit_price ?? null,
+      discontinued: data.discontinued ?? false,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  const { error: invError } = await supabase.from("inventory").insert({
+    product_id: product.id,
+    current_stock: data.current_stock,
+    reserved_stock: data.reserved_stock,
+    incoming_qty: data.incoming_qty,
+    eta: data.eta || null,
+    low_stock_threshold: data.low_stock_threshold,
+  });
+  if (invError) throw new Error(invError.message);
+
+  revalidatePath("/inventory");
+  redirect("/inventory");
+}
+
+export async function updateProduct(id: string, formData: FormData) {
+  const supabase = createClient();
+  const data = parseProductForm(formData);
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      sku: data.sku,
+      name: data.name,
+      category: data.category || null,
+      unit_cost: data.unit_cost ?? null,
+      unit_price: data.unit_price ?? null,
+      discontinued: data.discontinued ?? false,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  const { error: invError } = await supabase.from("inventory").upsert({
+    product_id: id,
+    current_stock: data.current_stock,
+    reserved_stock: data.reserved_stock,
+    incoming_qty: data.incoming_qty,
+    eta: data.eta || null,
+    low_stock_threshold: data.low_stock_threshold,
+    updated_at: new Date().toISOString(),
+  });
+  if (invError) throw new Error(invError.message);
+
+  revalidatePath("/inventory");
+  redirect("/inventory");
+}
+
+export async function deleteProduct(id: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/inventory");
+  redirect("/inventory");
+}
