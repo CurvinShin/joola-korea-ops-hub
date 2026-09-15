@@ -38,7 +38,7 @@ export default async function InventoryPage({
       </div>
 
       <form className="flex gap-3">
-        <Input name="q" placeholder="이름 또는 SKU로 검색..." defaultValue={searchParams.q} className="max-w-xs" />
+        <Input name="q" placeholder="이름 또는 상품코드로 검색..." defaultValue={searchParams.q} className="max-w-xs" />
         <Button type="submit" variant="secondary">
           검색
         </Button>
@@ -54,7 +54,7 @@ export default async function InventoryPage({
             <Table>
               <Thead>
                 <Tr>
-                  <Th>SKU</Th>
+                  <Th>상품코드</Th>
                   <Th>제품</Th>
                   <Th>카테고리</Th>
                   <Th>가용 재고</Th>

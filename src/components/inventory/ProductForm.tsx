@@ -13,7 +13,7 @@ export function ProductForm({
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="sku">SKU</Label>
+          <Label htmlFor="sku">상품코드 (SKU)</Label>
           <Input id="sku" name="sku" required defaultValue={defaultValues?.sku} />
         </div>
         <div>
