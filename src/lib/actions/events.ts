@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const eventSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  event_date: z.string().min(1, "Date is required"),
+  name: z.string().min(1, "이벤트명을 입력해주세요"),
+  event_date: z.string().min(1, "날짜를 입력해주세요"),
   location: z.string().optional().or(z.literal("")),
   organizer: z.string().optional().or(z.literal("")),
   budget: z.coerce.number().min(0).default(0),

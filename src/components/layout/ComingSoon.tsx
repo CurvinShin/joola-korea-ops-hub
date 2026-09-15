@@ -9,10 +9,10 @@ export function ComingSoon({ title, description }: { title: string; description:
       </div>
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm font-medium text-slate-500">Coming in Phase 2</p>
+          <p className="text-sm font-medium text-slate-500">2단계(Phase 2)에서 제공 예정</p>
           <p className="mt-1 max-w-md text-sm text-slate-400">
-            The database schema for this module already exists (see ARCHITECTURE.md), so adding this
-            screen later won&apos;t require restructuring any data.
+            이 모듈의 데이터베이스 스키마는 이미 준비되어 있어(ARCHITECTURE.md 참고), 나중에 화면을
+            추가할 때 데이터 구조를 다시 설계할 필요가 없습니다.
           </p>
         </CardContent>
       </Card>

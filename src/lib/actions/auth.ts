@@ -9,7 +9,7 @@ export async function signIn(formData: FormData) {
   const next = String(formData.get("next") || "/dashboard");
 
   if (!email || !password) {
-    redirect(`/login?error=${encodeURIComponent("Email and password are required.")}`);
+    redirect(`/login?error=${encodeURIComponent("이메일과 비밀번호를 모두 입력해주세요.")}`);
   }
 
   const supabase = createClient();

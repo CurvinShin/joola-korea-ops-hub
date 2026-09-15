@@ -9,6 +9,7 @@ import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { DealerForm } from "@/components/dealers/DealerForm";
 import type { DealerStatus } from "@/lib/types/database.types";
+import { dealerStatusLabel, dealerClassificationLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -40,31 +41,31 @@ export default async function DealersPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Dealers</h1>
-          <p className="text-sm text-slate-500">Contracts, discounts, and order activity by dealer.</p>
+          <h1 className="text-xl font-semibold text-slate-900">딜러</h1>
+          <p className="text-sm text-slate-500">딜러별 계약, 할인율, 주문 현황입니다.</p>
         </div>
         <Link href="/dealers?new=1">
-          <Button>Add dealer</Button>
+          <Button>딜러 추가</Button>
         </Link>
       </div>
 
       <form className="flex flex-wrap gap-3">
-        <Input name="q" placeholder="Search by name..." defaultValue={searchParams.q} className="max-w-xs" />
+        <Input name="q" placeholder="이름으로 검색..." defaultValue={searchParams.q} className="max-w-xs" />
         <Select name="status" defaultValue={searchParams.status ?? ""} className="max-w-[160px]">
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending</option>
-          <option value="inactive">Inactive</option>
-          <option value="terminated">Terminated</option>
+          <option value="">전체 상태</option>
+          <option value="active">활성</option>
+          <option value="pending">대기</option>
+          <option value="inactive">비활성</option>
+          <option value="terminated">계약 종료</option>
         </Select>
         <Button type="submit" variant="secondary">
-          Filter
+          필터
         </Button>
       </form>
 
       <Card>
         <CardHeader>
-          <CardTitle>{dealers?.length ?? 0} dealers</CardTitle>
+          <CardTitle>딜러 {dealers?.length ?? 0}곳</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
@@ -72,12 +73,12 @@ export default async function DealersPage({
             <Table>
               <Thead>
                 <Tr>
-                  <Th>Name</Th>
-                  <Th>Classification</Th>
-                  <Th>Status</Th>
-                  <Th>Region</Th>
-                  <Th>Discount</Th>
-                  <Th>Contract ends</Th>
+                  <Th>이름</Th>
+                  <Th>분류</Th>
+                  <Th>상태</Th>
+                  <Th>지역</Th>
+                  <Th>할인율</Th>
+                  <Th>계약 종료일</Th>
                 </Tr>
               </Thead>
               <tbody>
@@ -88,9 +89,11 @@ export default async function DealersPage({
                         {d.name}
                       </Link>
                     </Td>
-                    <Td className="capitalize">{d.classification.replace("_", " ")}</Td>
+                    <Td>{dealerClassificationLabel[d.classification] ?? d.classification}</Td>
                     <Td>
-                      <Badge tone={statusTone[d.status as DealerStatus]}>{d.status}</Badge>
+                      <Badge tone={statusTone[d.status as DealerStatus]}>
+                        {dealerStatusLabel[d.status] ?? d.status}
+                      </Badge>
                     </Td>
                     <Td>{d.region ?? "—"}</Td>
                     <Td>{d.discount_rate}%</Td>
@@ -100,13 +103,13 @@ export default async function DealersPage({
               </tbody>
             </Table>
           ) : (
-            <p className="p-8 text-center text-sm text-slate-400">No dealers match these filters yet.</p>
+            <p className="p-8 text-center text-sm text-slate-400">조건에 맞는 딜러가 없습니다.</p>
           )}
         </CardContent>
       </Card>
 
       {searchParams.new && (
-        <Modal title="Add dealer" closeHref="/dealers">
+        <Modal title="딜러 추가" closeHref="/dealers">
           <DealerForm action={createDealer} />
         </Modal>
       )}

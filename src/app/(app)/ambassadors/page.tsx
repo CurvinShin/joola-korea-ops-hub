@@ -3,8 +3,8 @@ import { ComingSoon } from "@/components/layout/ComingSoon";
 export default function AmbassadorsPage() {
   return (
     <ComingSoon
-      title="Players / Ambassadors / Influencers"
-      description="Contracts, compensation, equipment support, and content obligations."
+      title="선수 / 앰버서더 / 인플루언서"
+      description="계약, 보상, 장비 지원 및 콘텐츠 의무사항."
     />
   );
 }

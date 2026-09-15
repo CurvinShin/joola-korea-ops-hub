@@ -26,7 +26,7 @@ export function Modal({
           <Link
             href={closeHref}
             className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
+            aria-label="닫기"
           >
             ✕
           </Link>

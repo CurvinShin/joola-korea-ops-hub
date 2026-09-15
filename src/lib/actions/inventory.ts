@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const productSchema = z.object({
-  sku: z.string().min(1, "SKU is required"),
-  name: z.string().min(1, "Name is required"),
+  sku: z.string().min(1, "SKU를 입력해주세요"),
+  name: z.string().min(1, "제품명을 입력해주세요"),
   category: z.string().optional().or(z.literal("")),
   unit_cost: z.coerce.number().min(0).optional(),
   unit_price: z.coerce.number().min(0).optional(),

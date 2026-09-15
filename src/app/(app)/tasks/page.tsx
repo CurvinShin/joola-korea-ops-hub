@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { TaskStatusSelect } from "@/components/tasks/TaskStatusSelect";
 import type { TaskPriority, TaskStatus } from "@/lib/types/database.types";
+import { taskPriorityLabel, taskStatusLabel, taskCategoryLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -52,37 +53,37 @@ export default async function TasksPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Tasks</h1>
-          <p className="text-sm text-slate-500">Everything on your plate, in one list.</p>
+          <h1 className="text-xl font-semibold text-slate-900">작업</h1>
+          <p className="text-sm text-slate-500">해야 할 모든 일을 한 목록에서 관리합니다.</p>
         </div>
         <Link href="/tasks?new=1">
-          <Button>Add task</Button>
+          <Button>작업 추가</Button>
         </Link>
       </div>
 
       <form className="flex flex-wrap gap-3">
         <Select name="status" defaultValue={searchParams.status ?? ""} className="max-w-[160px]">
-          <option value="">All statuses</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In progress</option>
-          <option value="blocked">Blocked</option>
-          <option value="done">Done</option>
+          <option value="">전체 상태</option>
+          <option value="open">오픈</option>
+          <option value="in_progress">진행중</option>
+          <option value="blocked">보류</option>
+          <option value="done">완료</option>
         </Select>
         <Select name="priority" defaultValue={searchParams.priority ?? ""} className="max-w-[160px]">
-          <option value="">All priorities</option>
-          <option value="urgent">Urgent</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+          <option value="">전체 우선순위</option>
+          <option value="urgent">긴급</option>
+          <option value="high">높음</option>
+          <option value="medium">보통</option>
+          <option value="low">낮음</option>
         </Select>
         <Button type="submit" variant="secondary">
-          Filter
+          필터
         </Button>
       </form>
 
       <Card>
         <CardHeader>
-          <CardTitle>{tasks?.length ?? 0} tasks</CardTitle>
+          <CardTitle>작업 {tasks?.length ?? 0}건</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
@@ -90,11 +91,11 @@ export default async function TasksPage({
             <Table>
               <Thead>
                 <Tr>
-                  <Th>Task</Th>
-                  <Th>Category</Th>
-                  <Th>Priority</Th>
-                  <Th>Due</Th>
-                  <Th>Status</Th>
+                  <Th>작업</Th>
+                  <Th>분류</Th>
+                  <Th>우선순위</Th>
+                  <Th>마감일</Th>
+                  <Th>상태</Th>
                   <Th></Th>
                 </Tr>
               </Thead>
@@ -102,9 +103,11 @@ export default async function TasksPage({
                 {tasks.map((t) => (
                   <Tr key={t.id}>
                     <Td className="font-medium text-slate-900">{t.title}</Td>
-                    <Td className="capitalize">{t.category.replace("_", " ")}</Td>
+                    <Td>{taskCategoryLabel[t.category] ?? t.category}</Td>
                     <Td>
-                      <Badge tone={priorityTone[t.priority as TaskPriority]}>{t.priority}</Badge>
+                      <Badge tone={priorityTone[t.priority as TaskPriority]}>
+                        {taskPriorityLabel[t.priority] ?? t.priority}
+                      </Badge>
                     </Td>
                     <Td>{t.due_date ?? "—"}</Td>
                     <Td>
@@ -113,10 +116,10 @@ export default async function TasksPage({
                     <Td className="text-right">
                       <div className="flex justify-end gap-3">
                         <Link href={`/tasks?edit=${t.id}`} className="text-brand-600 hover:underline">
-                          Edit
+                          수정
                         </Link>
                         <form action={deleteTask.bind(null, t.id)}>
-                          <button className="text-red-600 hover:underline">Delete</button>
+                          <button className="text-red-600 hover:underline">삭제</button>
                         </form>
                       </div>
                     </Td>
@@ -125,19 +128,19 @@ export default async function TasksPage({
               </tbody>
             </Table>
           ) : (
-            <p className="p-8 text-center text-sm text-slate-400">No tasks match these filters.</p>
+            <p className="p-8 text-center text-sm text-slate-400">조건에 맞는 작업이 없습니다.</p>
           )}
         </CardContent>
       </Card>
 
       {searchParams.new && (
-        <Modal title="Add task" closeHref="/tasks">
+        <Modal title="작업 추가" closeHref="/tasks">
           <TaskForm action={createTask} dealerOptions={dealerOptions} eventOptions={eventOptions} />
         </Modal>
       )}
 
       {editRow && (
-        <Modal title={`Edit ${editRow.title}`} closeHref="/tasks">
+        <Modal title={`${editRow.title} 수정`} closeHref="/tasks">
           <TaskForm
             action={updateTask.bind(null, editRow.id)}
             defaultValues={editRow}

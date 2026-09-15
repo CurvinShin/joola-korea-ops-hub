@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { format, startOfMonth } from "date-fns";
+import { orderStatusLabel, taskPriorityLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic"; // always show live data, never cache
 
@@ -55,32 +56,32 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500">Live snapshot of JOOLA Korea operations.</p>
+        <h1 className="text-xl font-semibold text-slate-900">대시보드</h1>
+        <p className="text-sm text-slate-500">JOOLA Korea 운영 현황을 실시간으로 보여줍니다.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active dealers" value={String(activeDealerCount ?? 0)} />
+        <KpiCard label="활성 딜러 수" value={String(activeDealerCount ?? 0)} />
         <KpiCard
-          label="Low-stock SKUs"
+          label="재고 부족 SKU"
           value={String(lowStockRows?.length ?? 0)}
           tone={(lowStockRows?.length ?? 0) > 0 ? "warning" : "default"}
-          hint="Available stock at or below threshold"
+          hint="가용 재고가 기준치 이하인 상품"
         />
         <KpiCard
-          label="Month-to-date sales"
+          label="이번 달 누적 매출"
           value={currency(monthSalesTotal)}
-          hint={pctOfTarget !== null ? `${pctOfTarget}% of ${currency(target!)} target` : "No target set for this month"}
+          hint={pctOfTarget !== null ? `목표 ${currency(target!)} 대비 ${pctOfTarget}%` : "이번 달 목표가 설정되지 않았습니다"}
         />
-        <KpiCard label="Open tasks" value={String(pendingTasks?.length ?? 0)} />
+        <KpiCard label="미완료 작업" value={String(pendingTasks?.length ?? 0)} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Recent dealer orders</CardTitle>
+            <CardTitle>최근 딜러 주문</CardTitle>
             <Link href="/dealers" className="text-xs font-medium text-brand-600 hover:underline">
-              View dealers
+              딜러 보기
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -88,10 +89,10 @@ export default async function DashboardPage() {
               <Table>
                 <Thead>
                   <Tr>
-                    <Th>Dealer</Th>
-                    <Th>Date</Th>
-                    <Th>Status</Th>
-                    <Th>Amount</Th>
+                    <Th>딜러</Th>
+                    <Th>날짜</Th>
+                    <Th>상태</Th>
+                    <Th>금액</Th>
                   </Tr>
                 </Thead>
                 <tbody>
@@ -100,7 +101,7 @@ export default async function DashboardPage() {
                       <Td>{o.dealers?.name ?? "—"}</Td>
                       <Td>{o.order_date}</Td>
                       <Td>
-                        <Badge tone="blue">{o.status}</Badge>
+                        <Badge tone="blue">{orderStatusLabel[o.status] ?? o.status}</Badge>
                       </Td>
                       <Td>{currency(Number(o.total_amount))}</Td>
                     </Tr>
@@ -108,16 +109,16 @@ export default async function DashboardPage() {
                 </tbody>
               </Table>
             ) : (
-              <EmptyState label="No dealer orders logged yet." />
+              <EmptyState label="아직 등록된 딜러 주문이 없습니다." />
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming events</CardTitle>
+            <CardTitle>다가오는 이벤트</CardTitle>
             <Link href="/events" className="text-xs font-medium text-brand-600 hover:underline">
-              View events
+              이벤트 보기
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -125,9 +126,9 @@ export default async function DashboardPage() {
               <Table>
                 <Thead>
                   <Tr>
-                    <Th>Event</Th>
-                    <Th>Date</Th>
-                    <Th>Location</Th>
+                    <Th>이벤트</Th>
+                    <Th>날짜</Th>
+                    <Th>장소</Th>
                   </Tr>
                 </Thead>
                 <tbody>
@@ -141,16 +142,16 @@ export default async function DashboardPage() {
                 </tbody>
               </Table>
             ) : (
-              <EmptyState label="No upcoming events scheduled." />
+              <EmptyState label="예정된 이벤트가 없습니다." />
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Low-stock alerts</CardTitle>
+            <CardTitle>재고 부족 알림</CardTitle>
             <Link href="/inventory" className="text-xs font-medium text-brand-600 hover:underline">
-              View inventory
+              재고 보기
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -158,9 +159,9 @@ export default async function DashboardPage() {
               <Table>
                 <Thead>
                   <Tr>
-                    <Th>Product</Th>
-                    <Th>Available</Th>
-                    <Th>Incoming</Th>
+                    <Th>제품</Th>
+                    <Th>가용 재고</Th>
+                    <Th>입고 예정</Th>
                   </Tr>
                 </Thead>
                 <tbody>
@@ -170,22 +171,22 @@ export default async function DashboardPage() {
                       <Td>
                         <Badge tone="amber">{r.available_stock}</Badge>
                       </Td>
-                      <Td>{r.incoming_qty > 0 ? `${r.incoming_qty} (ETA ${r.eta ?? "—"})` : "—"}</Td>
+                      <Td>{r.incoming_qty > 0 ? `${r.incoming_qty}개 (입고예정일 ${r.eta ?? "—"})` : "—"}</Td>
                     </Tr>
                   ))}
                 </tbody>
               </Table>
             ) : (
-              <EmptyState label="All products are above their low-stock threshold." />
+              <EmptyState label="모든 제품의 재고가 부족 기준치 이상입니다." />
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Pending tasks</CardTitle>
+            <CardTitle>대기 중인 작업</CardTitle>
             <Link href="/tasks" className="text-xs font-medium text-brand-600 hover:underline">
-              View tasks
+              작업 보기
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -193,9 +194,9 @@ export default async function DashboardPage() {
               <Table>
                 <Thead>
                   <Tr>
-                    <Th>Task</Th>
-                    <Th>Priority</Th>
-                    <Th>Due</Th>
+                    <Th>작업</Th>
+                    <Th>우선순위</Th>
+                    <Th>마감일</Th>
                   </Tr>
                 </Thead>
                 <tbody>
@@ -204,7 +205,7 @@ export default async function DashboardPage() {
                       <Td>{t.title}</Td>
                       <Td>
                         <Badge tone={t.priority === "urgent" || t.priority === "high" ? "red" : "slate"}>
-                          {t.priority}
+                          {taskPriorityLabel[t.priority] ?? t.priority}
                         </Badge>
                       </Td>
                       <Td>{t.due_date ?? "—"}</Td>
@@ -213,7 +214,7 @@ export default async function DashboardPage() {
                 </tbody>
               </Table>
             ) : (
-              <EmptyState label="No open tasks. Nice work." />
+              <EmptyState label="미완료 작업이 없습니다. 수고하셨습니다!" />
             )}
           </CardContent>
         </Card>
@@ -221,14 +222,14 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Quick links</CardTitle>
+          <CardTitle>바로가기</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           {[
-            { href: "/dealers?new=1", label: "Add dealer" },
-            { href: "/inventory?new=1", label: "Add product" },
-            { href: "/events?new=1", label: "Add event" },
-            { href: "/tasks?new=1", label: "Add task" },
+            { href: "/dealers?new=1", label: "딜러 추가" },
+            { href: "/inventory?new=1", label: "제품 추가" },
+            { href: "/events?new=1", label: "이벤트 추가" },
+            { href: "/tasks?new=1", label: "작업 추가" },
           ].map((l) => (
             <Link
               key={l.href}

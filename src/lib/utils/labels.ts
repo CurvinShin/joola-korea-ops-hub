@@ -1,0 +1,50 @@
+// Korean display labels for enum values stored in the database.
+// The underlying values (English) are never changed here — only what's rendered on screen.
+
+export const dealerStatusLabel: Record<string, string> = {
+  active: "활성",
+  pending: "대기",
+  inactive: "비활성",
+  terminated: "계약 종료",
+};
+
+export const dealerClassificationLabel: Record<string, string> = {
+  flagship: "플래그십",
+  standard: "일반",
+  online_only: "온라인 전용",
+  distributor: "총판",
+};
+
+export const orderStatusLabel: Record<string, string> = {
+  draft: "초안",
+  confirmed: "확정",
+  shipped: "출고",
+  delivered: "배송완료",
+  cancelled: "취소",
+};
+
+export const taskStatusLabel: Record<string, string> = {
+  open: "오픈",
+  in_progress: "진행중",
+  blocked: "보류",
+  done: "완료",
+};
+
+export const taskPriorityLabel: Record<string, string> = {
+  low: "낮음",
+  medium: "보통",
+  high: "높음",
+  urgent: "긴급",
+};
+
+export const taskCategoryLabel: Record<string, string> = {
+  general: "일반",
+  dealer: "딜러",
+  inventory: "재고",
+  sales: "영업",
+  purchase_order: "발주",
+  event: "이벤트",
+  facility: "시설",
+  ambassador: "앰버서더",
+  marketing: "마케팅",
+};

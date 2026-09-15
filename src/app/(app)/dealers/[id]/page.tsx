@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DealerForm } from "@/components/dealers/DealerForm";
 import { format, startOfYear } from "date-fns";
+import { orderStatusLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -42,13 +43,13 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
       <div className="flex items-center justify-between">
         <div>
           <Link href="/dealers" className="text-xs text-slate-400 hover:underline">
-            ← All dealers
+            ← 전체 딜러
           </Link>
           <h1 className="text-xl font-semibold text-slate-900">{dealer.name}</h1>
         </div>
         <form action={deleteWithId}>
           <Button type="submit" variant="danger" size="sm">
-            Delete dealer
+            딜러 삭제
           </Button>
         </form>
       </div>
@@ -57,13 +58,13 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>YTD purchases vs. MOQ target</CardTitle>
+              <CardTitle>연간 누적 구매액 대비 MOQ 목표</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-baseline justify-between text-sm">
                 <span className="font-semibold text-slate-900">{currency(ytdTotal)}</span>
                 <span className="text-slate-400">
-                  target {dealer.moq_target > 0 ? currency(dealer.moq_target) : "not set"}
+                  목표 {dealer.moq_target > 0 ? currency(dealer.moq_target) : "미설정"}
                 </span>
               </div>
               {moqPct !== null && (
@@ -76,16 +77,16 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
 
           <Card>
             <CardHeader>
-              <CardTitle>Order history</CardTitle>
+              <CardTitle>주문 이력</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {orders && orders.length > 0 ? (
                 <Table>
                   <Thead>
                     <Tr>
-                      <Th>Date</Th>
-                      <Th>Status</Th>
-                      <Th>Amount</Th>
+                      <Th>날짜</Th>
+                      <Th>상태</Th>
+                      <Th>금액</Th>
                     </Tr>
                   </Thead>
                   <tbody>
@@ -93,7 +94,7 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
                       <Tr key={o.id}>
                         <Td>{o.order_date}</Td>
                         <Td>
-                          <Badge tone="blue">{o.status}</Badge>
+                          <Badge tone="blue">{orderStatusLabel[o.status] ?? o.status}</Badge>
                         </Td>
                         <Td>{currency(Number(o.total_amount))}</Td>
                       </Tr>
@@ -102,7 +103,7 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
                 </Table>
               ) : (
                 <p className="p-8 text-center text-sm text-slate-400">
-                  No orders logged for this dealer yet. Orders are added from the (Phase 2) Sales module.
+                  이 딜러의 주문 내역이 아직 없습니다. 주문은 (2단계 예정) 영업 모듈에서 추가됩니다.
                 </p>
               )}
             </CardContent>
@@ -111,7 +112,7 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
           {dealer.outstanding_issues && (
             <Card>
               <CardHeader>
-                <CardTitle>Outstanding issues</CardTitle>
+                <CardTitle>미해결 이슈</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-slate-700">{dealer.outstanding_issues}</CardContent>
             </Card>
@@ -120,7 +121,7 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
 
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Edit dealer</CardTitle>
+            <CardTitle>딜러 정보 수정</CardTitle>
           </CardHeader>
           <CardContent>
             <DealerForm action={updateWithId} defaultValues={dealer} />

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const dealerSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "딜러명을 입력해주세요"),
   classification: z.enum(["flagship", "standard", "online_only", "distributor"]),
   status: z.enum(["active", "pending", "inactive", "terminated"]),
   contact_name: z.string().optional().or(z.literal("")),
