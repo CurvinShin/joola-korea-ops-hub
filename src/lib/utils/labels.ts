@@ -48,3 +48,18 @@ export const taskCategoryLabel: Record<string, string> = {
   ambassador: "앰버서더",
   marketing: "마케팅",
 };
+
+export const shippingStatusLabel: Record<string, string> = {
+  not_shipped: "미출고",
+  in_transit: "운송중",
+  arrived_port: "항구 도착",
+  cleared_customs: "통관 완료",
+  delivered: "배송 완료",
+};
+
+export const customsStatusLabel: Record<string, string> = {
+  not_started: "시작 전",
+  in_progress: "진행중",
+  cleared: "통관 완료",
+  held: "보류",
+};

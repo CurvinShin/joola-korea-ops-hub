@@ -24,6 +24,8 @@ export type TaskCategory =
   | "ambassador"
   | "marketing"
   | "general";
+export type ShippingStatus = "not_shipped" | "in_transit" | "arrived_port" | "cleared_customs" | "delivered";
+export type CustomsStatus = "not_started" | "in_progress" | "cleared" | "held";
 
 export interface Profile {
   id: string;
@@ -117,6 +119,20 @@ export interface DealerOrder {
   order_date: string;
   status: "draft" | "confirmed" | "shipped" | "delivered" | "cancelled";
   total_amount: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier: string;
+  order_date: string;
+  eta: string | null;
+  shipping_status: ShippingStatus;
+  customs_status: CustomsStatus;
+  received: boolean;
+  total_cost: number;
   notes: string | null;
   created_at: string;
 }
