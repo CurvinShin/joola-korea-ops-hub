@@ -1,10 +1,11 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Runs on every request. Refreshes the Supabase session cookie and blocks
-// access to everything except /login for anyone who isn't signed in.
-// This is the single place that makes the whole app "private by default" —
-// no page needs to remember to check auth itself.
+// Runs on every request. Refreshes the Supabase session cookie, blocks
+// access to everything except /login for anyone who isn't signed in, and
+// keeps dealer-portal accounts confined to /order (they never see the
+// internal ops pages — RLS also blocks the data, but this keeps the nav
+// experience clean too).
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -43,7 +44,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    return NextResponse.redirect(new URL(profile?.role === "dealer" ? "/order" : "/dashboard", request.url));
+  }
+
+  if (user && !isAuthRoute) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const isDealer = profile?.role === "dealer";
+    const isOrderRoute = request.nextUrl.pathname.startsWith("/order");
+
+    if (isDealer && !isOrderRoute) {
+      return NextResponse.redirect(new URL("/order", request.url));
+    }
   }
 
   return response;

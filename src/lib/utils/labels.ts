@@ -63,3 +63,20 @@ export const customsStatusLabel: Record<string, string> = {
   cleared: "통관 완료",
   held: "보류",
 };
+
+export const appRoleLabel: Record<string, string> = {
+  admin: "관리자",
+  sales: "영업",
+  marketing: "마케팅",
+  ecommerce: "이커머스",
+  viewer: "뷰어",
+  dealer: "딜러",
+};
+
+export const dealerOrderStatusLabel: Record<string, string> = {
+  draft: "초안",
+  confirmed: "주문 접수",
+  shipped: "출고",
+  delivered: "배송완료",
+  cancelled: "취소",
+};

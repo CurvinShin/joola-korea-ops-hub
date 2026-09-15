@@ -27,6 +27,18 @@ export function ProductForm({
         <Input id="category" name="category" defaultValue={defaultValues?.category ?? ""} />
       </div>
 
+      <div>
+        <Label htmlFor="image_url">제품 사진 URL</Label>
+        <Input
+          id="image_url"
+          name="image_url"
+          type="url"
+          placeholder="https://joola.com/... 에서 사진 주소를 복사해 붙여넣으세요"
+          defaultValue={defaultValues?.image_url ?? ""}
+        />
+        <p className="mt-1 text-xs text-slate-400">비워두면 딜러 주문 페이지에 &ldquo;사진 없음&rdquo;으로 표시됩니다.</p>
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div>
           <Label htmlFor="current_stock">현재 재고</Label>

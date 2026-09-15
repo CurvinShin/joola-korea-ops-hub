@@ -9,7 +9,7 @@
  * See README.md "Keeping types in sync" for details.
  */
 
-export type AppRole = "admin" | "sales" | "marketing" | "ecommerce" | "viewer";
+export type AppRole = "admin" | "sales" | "marketing" | "ecommerce" | "viewer" | "dealer";
 export type DealerStatus = "active" | "pending" | "inactive" | "terminated";
 export type DealerClassification = "flagship" | "standard" | "online_only" | "distributor";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
@@ -31,6 +31,7 @@ export interface Profile {
   id: string;
   full_name: string | null;
   role: AppRole;
+  dealer_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,6 +60,7 @@ export interface Product {
   sku: string;
   name: string;
   category: string | null;
+  image_url: string | null;
   unit_cost: number | null;
   unit_price: number | null;
   discontinued: boolean;
@@ -71,6 +73,7 @@ export interface InventoryStatusRow {
   sku: string;
   name: string;
   category: string | null;
+  image_url: string | null;
   discontinued: boolean;
   current_stock: number;
   reserved_stock: number;
@@ -79,6 +82,26 @@ export interface InventoryStatusRow {
   eta: string | null;
   low_stock_threshold: number;
   is_low_stock: boolean;
+}
+
+// Row shape of the `dealer_catalog` view — what a dealer-portal login is
+// allowed to see: list price + available stock, never our unit_cost.
+export interface DealerCatalogRow {
+  product_id: string;
+  sku: string;
+  name: string;
+  category: string | null;
+  image_url: string | null;
+  unit_price: number | null;
+  available_stock: number;
+}
+
+export interface DealerOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
 }
 
 export interface EventRow {

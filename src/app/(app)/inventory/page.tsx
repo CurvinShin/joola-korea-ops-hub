@@ -54,6 +54,7 @@ export default async function InventoryPage({
             <Table>
               <Thead>
                 <Tr>
+                  <Th>사진</Th>
                   <Th>상품코드</Th>
                   <Th>제품</Th>
                   <Th>카테고리</Th>
@@ -66,6 +67,16 @@ export default async function InventoryPage({
               <tbody>
                 {rows.map((r) => (
                   <Tr key={r.product_id}>
+                    <Td>
+                      {r.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.image_url} alt={r.name} className="h-10 w-10 rounded object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
+                          없음
+                        </div>
+                      )}
+                    </Td>
                     <Td className="font-mono text-xs">{r.sku}</Td>
                     <Td>{r.name}</Td>
                     <Td>{r.category ?? "—"}</Td>

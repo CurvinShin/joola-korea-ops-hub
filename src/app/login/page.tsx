@@ -20,7 +20,7 @@ export default function LoginPage({
         )}
 
         <form action={signIn} className="mt-6 space-y-4">
-          <input type="hidden" name="next" value={searchParams.next || "/dashboard"} />
+          <input type="hidden" name="next" value={searchParams.next || ""} />
           <div>
             <Label htmlFor="email">이메일</Label>
             <Input id="email" name="email" type="email" required autoComplete="email" />

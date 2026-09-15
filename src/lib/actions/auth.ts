@@ -18,20 +18,30 @@ function translateAuthError(message: string): string {
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/dashboard");
+  const explicitNext = String(formData.get("next") || "");
 
   if (!email || !password) {
     redirect(`/login?error=${encodeURIComponent("이메일과 비밀번호를 모두 입력해주세요.")}`);
   }
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(translateAuthError(error.message))}`);
   }
 
-  redirect(next);
+  // Dealer-portal accounts land on the order page; everyone else lands on
+  // the internal dashboard — unless middleware bounced them from a specific
+  // page (explicitNext), in which case honor that instead.
+  let defaultNext = "/dashboard";
+  const userId = data.user?.id;
+  if (userId) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    if (profile?.role === "dealer") defaultNext = "/order";
+  }
+
+  redirect(explicitNext || defaultNext);
 }
 
 export async function signOut() {
