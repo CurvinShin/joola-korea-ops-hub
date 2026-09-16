@@ -29,16 +29,38 @@ export default async function InventoryPage({
     .from("catalog_gaps")
     .select("id", { count: "exact", head: true });
 
+  const { data: lastSnapshot } = await supabase
+    .from("inventory_snapshots")
+    .select("snapshot_at")
+    .order("snapshot_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">재고</h1>
           <p className="text-sm text-slate-500">재고 수량, 입고 예정, 재고 부족 알림입니다.</p>
+          {lastSnapshot && (
+            <p className="mt-0.5 text-xs text-slate-400">
+              마지막 재고 최신화:{" "}
+              {new Intl.DateTimeFormat("ko-KR", {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: "Asia/Seoul",
+              }).format(new Date(lastSnapshot.snapshot_at))}
+            </p>
+          )}
         </div>
-        <Link href="/inventory?new=1">
-          <Button>제품 추가</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/inventory/refresh">
+            <Button variant="secondary">재고 최신화</Button>
+          </Link>
+          <Link href="/inventory?new=1">
+            <Button>제품 추가</Button>
+          </Link>
+        </div>
       </div>
 
       {!!gapCount && (

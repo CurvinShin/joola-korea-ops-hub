@@ -194,6 +194,18 @@ export interface CatalogGap {
   created_at: string;
 }
 
+export interface InventorySnapshot {
+  id: string;
+  filename: string;
+  snapshot_at: string;
+  uploaded_by: string | null;
+  total_rows: number;
+  matched_count: number;
+  gap_updated_count: number;
+  gap_new_count: number;
+  created_at: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   po_number: string;
