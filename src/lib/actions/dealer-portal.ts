@@ -12,7 +12,11 @@ type PlaceOrderResult = { ok: true; message: string } | { ok: false; message: st
  * own copy of the product + dealer records, never trusted from the client,
  * so a dealer can't manipulate the price by tampering with the request.
  */
-export async function placeDealerOrder(productId: string, quantity: number): Promise<PlaceOrderResult> {
+export async function placeDealerOrder(
+  productId: string,
+  quantity: number,
+  isSample: boolean = false
+): Promise<PlaceOrderResult> {
   if (!Number.isFinite(quantity) || quantity < 1) {
     return { ok: false, message: "수량을 확인해주세요." };
   }
@@ -52,12 +56,18 @@ export async function placeDealerOrder(productId: string, quantity: number): Pro
 
   const basePrice = Number(product.unit_price ?? 0);
   const discountRate = Number(dealer.discount_rate ?? 0);
-  const unitPrice = Math.round(basePrice * (1 - discountRate / 100));
+  // Samples are provided free of charge — no discount math needed, just 0.
+  const unitPrice = isSample ? 0 : Math.round(basePrice * (1 - discountRate / 100));
   const totalAmount = unitPrice * quantity;
 
   const { data: order, error: orderError } = await supabase
     .from("dealer_orders")
-    .insert({ dealer_id: dealer.id, status: "confirmed", total_amount: totalAmount })
+    .insert({
+      dealer_id: dealer.id,
+      status: "confirmed",
+      order_type: isSample ? "sample" : "regular",
+      total_amount: totalAmount,
+    })
     .select("id")
     .single();
   if (orderError || !order) {

@@ -136,14 +136,31 @@ export interface Task {
   updated_at: string;
 }
 
+export type DealerOrderType = "regular" | "sample";
+
 export interface DealerOrder {
   id: string;
   dealer_id: string;
   order_date: string;
   status: "draft" | "confirmed" | "shipped" | "delivered" | "cancelled";
+  order_type: DealerOrderType;
+  synced_to_accounting: boolean;
   total_amount: number;
   notes: string | null;
   created_at: string;
+}
+
+// Row shape used by the admin "딜러 주문" review page — a dealer_orders row
+// with its dealer name and line items embedded via Supabase's FK joins.
+export interface DealerOrderAdminRow {
+  id: string;
+  order_date: string;
+  status: "draft" | "confirmed" | "shipped" | "delivered" | "cancelled";
+  order_type: DealerOrderType;
+  synced_to_accounting: boolean;
+  total_amount: number;
+  dealers: { name: string } | null;
+  dealer_order_items: { quantity: number; unit_price: number; products: { name: string; sku: string } | null }[];
 }
 
 export interface PurchaseOrder {

@@ -80,3 +80,8 @@ export const dealerOrderStatusLabel: Record<string, string> = {
   delivered: "배송완료",
   cancelled: "취소",
 };
+
+export const dealerOrderTypeLabel: Record<string, string> = {
+  regular: "일반판매",
+  sample: "샘플",
+};

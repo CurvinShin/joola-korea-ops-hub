@@ -10,11 +10,12 @@ const currency = (n: number) =>
 
 export function OrderRow({ product, discountRate }: { product: DealerCatalogRow; discountRate: number }) {
   const [quantity, setQuantity] = useState(1);
+  const [isSample, setIsSample] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const basePrice = Number(product.unit_price ?? 0);
-  const unitPrice = Math.round(basePrice * (1 - discountRate / 100));
+  const unitPrice = isSample ? 0 : Math.round(basePrice * (1 - discountRate / 100));
   const subtotal = unitPrice * quantity;
   const outOfStock = product.available_stock <= 0;
 
@@ -25,9 +26,12 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
   function handleOrder() {
     setMessage(null);
     startTransition(async () => {
-      const result = await placeDealerOrder(product.product_id, quantity);
+      const result = await placeDealerOrder(product.product_id, quantity, isSample);
       setMessage({ ok: result.ok, text: result.message });
-      if (result.ok) setQuantity(1);
+      if (result.ok) {
+        setQuantity(1);
+        setIsSample(false);
+      }
     });
   }
 
@@ -59,13 +63,22 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
               <>가용 재고 {product.available_stock}개</>
             )}
           </p>
+          <label className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={isSample}
+              disabled={outOfStock || isPending}
+              onChange={(e) => setIsSample(e.target.checked)}
+            />
+            샘플로 요청 (무상)
+          </label>
         </div>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">{currency(unitPrice)}</p>
-          {discountRate > 0 && (
+          <p className="text-sm font-semibold text-slate-900">{isSample ? "무상" : currency(unitPrice)}</p>
+          {!isSample && discountRate > 0 && (
             <p className="text-xs text-slate-400 line-through">{currency(basePrice)}</p>
           )}
         </div>
@@ -90,7 +103,9 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           </button>
         </div>
 
-        <div className="w-24 text-right text-sm font-semibold text-brand-700">{currency(subtotal)}</div>
+        <div className="w-24 text-right text-sm font-semibold text-brand-700">
+          {isSample ? "무상" : currency(subtotal)}
+        </div>
 
         <Button size="sm" disabled={outOfStock || isPending} onClick={handleOrder}>
           주문하기

@@ -13,6 +13,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; phase
     label: "운영",
     items: [
       { href: "/dealers", label: "딜러" },
+      { href: "/dealer-orders", label: "딜러 주문" },
       { href: "/inventory", label: "재고" },
       { href: "/purchase-orders", label: "발주" },
       { href: "/sales", label: "영업", phase2: true },

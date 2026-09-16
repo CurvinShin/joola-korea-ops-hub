@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { OrderRow } from "@/components/order/OrderRow";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { dealerOrderStatusLabel } from "@/lib/utils/labels";
+import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,9 @@ export default async function OrderPage() {
     supabase.from("dealer_catalog").select("*").order("name"),
     supabase
       .from("dealer_orders")
-      .select("id, order_date, status, total_amount, dealer_order_items(quantity, unit_price, products(name, sku))")
+      .select(
+        "id, order_date, status, order_type, total_amount, dealer_order_items(quantity, unit_price, products(name, sku))"
+      )
       .eq("dealer_id", profile.dealer_id)
       .order("order_date", { ascending: false })
       .limit(20),
@@ -88,8 +90,13 @@ export default async function OrderPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {o.order_type === "sample" && (
+                      <Badge tone="purple">{dealerOrderTypeLabel[o.order_type]}</Badge>
+                    )}
                     <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>
-                    <span className="text-sm font-medium text-slate-900">{currency(Number(o.total_amount))}</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {o.order_type === "sample" ? "무상" : currency(Number(o.total_amount))}
+                    </span>
                   </div>
                 </div>
               ))}
