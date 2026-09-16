@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { CatalogBrowser } from "@/components/order/CatalogBrowser";
+import { DealerOrderWorkspace } from "@/components/order/DealerOrderWorkspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
@@ -38,7 +38,7 @@ export default async function OrderPage() {
     supabase
       .from("dealer_orders")
       .select(
-        "id, order_date, status, order_type, total_amount, dealer_order_items(quantity, unit_price, products(name, sku))"
+        "id, order_date, status, order_type, total_amount, auto_shipping_fee, manual_shipping_fee, dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
       )
       .eq("dealer_id", profile.dealer_id)
       .order("order_date", { ascending: false })
@@ -52,7 +52,12 @@ export default async function OrderPage() {
       <div>
         <h1 className="text-xl font-semibold text-slate-900">{dealer?.name ?? "딜러"} 주문</h1>
         <p className="text-sm text-slate-500">
-          적용 할인율 {discountRate}% — 재고를 확인하고 수량을 선택해 바로 주문하세요.
+          적용 할인율 {discountRate}% — 필요한 상품을 장바구니에 담고 상단의 &ldquo;주문하기&rdquo;로 한 번에
+          주문하세요.
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          재고가 부족해도 주문은 접수됩니다(백오더). 배송비는 패들 10개당 1박스(5,000원)만 자동 계산되고, 그 외
+          품목의 배송비는 담당자가 확인 후 안내해드려요 — 최종 견적서를 받은 뒤에 입금해주세요.
         </p>
       </div>
 
@@ -62,7 +67,7 @@ export default async function OrderPage() {
         </CardHeader>
         <CardContent>
           {catalog && catalog.length > 0 ? (
-            <CatalogBrowser catalog={catalog as DealerCatalogRow[]} discountRate={discountRate} />
+            <DealerOrderWorkspace catalog={catalog as DealerCatalogRow[]} discountRate={discountRate} />
           ) : (
             <p className="py-8 text-center text-sm text-slate-400">등록된 제품이 없습니다.</p>
           )}
@@ -81,7 +86,10 @@ export default async function OrderPage() {
                   <div>
                     <p className="text-sm text-slate-900">
                       {o.order_date} ·{" "}
-                      {o.dealer_order_items?.map((it: any) => it.products?.name).filter(Boolean).join(", ") || "—"}
+                      {o.dealer_order_items
+                        ?.map((it: any) => `${it.products?.name ?? ""}${it.is_demo ? "(데모)" : ""}`)
+                        .filter(Boolean)
+                        .join(", ") || "—"}
                     </p>
                     <p className="text-xs text-slate-400">
                       {o.dealer_order_items?.reduce((sum: number, it: any) => sum + it.quantity, 0) ?? 0}개
@@ -94,6 +102,9 @@ export default async function OrderPage() {
                     <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>
                     <span className="text-sm font-medium text-slate-900">
                       {currency(Number(o.total_amount))}
+                      {o.manual_shipping_fee == null && (
+                        <span className="ml-1 text-xs font-normal text-amber-600">(배송비 별도 확정 전)</span>
+                      )}
                     </span>
                   </div>
                 </div>

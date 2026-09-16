@@ -74,8 +74,8 @@ export const appRoleLabel: Record<string, string> = {
 };
 
 export const dealerOrderStatusLabel: Record<string, string> = {
-  draft: "초안",
-  confirmed: "주문 접수",
+  draft: "입금 확인 대기",
+  confirmed: "발주 확정",
   shipped: "출고",
   delivered: "배송완료",
   cancelled: "취소",

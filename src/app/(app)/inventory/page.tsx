@@ -29,6 +29,11 @@ export default async function InventoryPage({
     .from("catalog_gaps")
     .select("id", { count: "exact", head: true });
 
+  const { count: backorderCount } = await supabase
+    .from("inventory_status")
+    .select("product_id", { count: "exact", head: true })
+    .lt("current_stock", 0);
+
   const { data: lastSnapshot } = await supabase
     .from("inventory_snapshots")
     .select("snapshot_at")
@@ -71,6 +76,15 @@ export default async function InventoryPage({
           <span>카탈로그 미매칭 재고 {gapCount}건 — 가격/유형 정보가 없어 제품으로 등록하지 못한 품목이 있습니다</span>
           <span className="font-medium">보기 →</span>
         </Link>
+      )}
+
+      {!!backorderCount && (
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span>
+            백오더(재고 마이너스) {backorderCount}건 — 딜러 주문 입금 확인 시 재고가 부족해도 차감되어 마이너스로
+            내려간 품목입니다. 이지어드민에서 자동 발주가 걸리지 않았다면 직접 발주해주세요.
+          </span>
+        </div>
       )}
 
       <form className="flex gap-3">
@@ -121,6 +135,8 @@ export default async function InventoryPage({
                     <Td>
                       {r.discontinued ? (
                         <Badge tone="slate">단종</Badge>
+                      ) : r.current_stock < 0 ? (
+                        <Badge tone="red">백오더</Badge>
                       ) : r.is_low_stock ? (
                         <Badge tone="amber">재고 부족</Badge>
                       ) : (

@@ -16,7 +16,7 @@ export default async function DealerOrdersPage() {
   const { data: orders, error } = await supabase
     .from("dealer_orders")
     .select(
-      "id, order_date, status, order_type, synced_to_accounting, total_amount, dealers(name), dealer_order_items(quantity, unit_price, products(name, sku))"
+      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, stock_deducted, dealers(name), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
     )
     .order("order_date", { ascending: false })
     .limit(100);
@@ -47,7 +47,8 @@ export default async function DealerOrdersPage() {
                   <Th>딜러</Th>
                   <Th>상품</Th>
                   <Th>구분</Th>
-                  <Th>금액</Th>
+                  <Th>공급가액</Th>
+                  <Th>배송비 확정</Th>
                   <Th></Th>
                 </Tr>
               </Thead>
@@ -58,7 +59,10 @@ export default async function DealerOrdersPage() {
                     <Td className="font-medium text-slate-900">{o.dealers?.name ?? "—"}</Td>
                     <Td>
                       {o.dealer_order_items
-                        ?.map((it) => `${it.products?.name ?? "—"} x${it.quantity}`)
+                        ?.map(
+                          (it) =>
+                            `${it.products?.name ?? "—"} x${it.quantity}${it.is_demo ? " (데모)" : ""}`
+                        )
                         .join(", ") || "—"}
                     </Td>
                     <Td>
@@ -67,8 +71,21 @@ export default async function DealerOrdersPage() {
                       </Badge>
                     </Td>
                     <Td>{currency(Number(o.total_amount))}</Td>
+                    <Td>
+                      {o.manual_shipping_fee != null
+                        ? currency(Number(o.auto_shipping_fee) + Number(o.manual_shipping_fee))
+                        : o.auto_shipping_fee > 0
+                          ? `${currency(Number(o.auto_shipping_fee))} (패들만)`
+                          : "미확정"}
+                    </Td>
                     <Td className="text-right">
-                      <DealerOrderRowActions orderId={o.id} status={o.status} synced={o.synced_to_accounting} />
+                      <DealerOrderRowActions
+                        orderId={o.id}
+                        status={o.status}
+                        synced={o.synced_to_accounting}
+                        autoShippingFee={Number(o.auto_shipping_fee)}
+                        manualShippingFee={o.manual_shipping_fee != null ? Number(o.manual_shipping_fee) : null}
+                      />
                     </Td>
                   </Tr>
                 ))}

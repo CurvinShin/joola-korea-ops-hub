@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { placeDealerOrder } from "@/lib/actions/dealer-portal";
+import { useState } from "react";
+import { useCart } from "@/components/order/CartContext";
 import { Button } from "@/components/ui/Button";
 import { calcDealerUnitPrice } from "@/lib/utils/pricing";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
@@ -10,10 +10,10 @@ const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
 
 export function OrderRow({ product, discountRate }: { product: DealerCatalogRow; discountRate: number }) {
+  const { addItem, open } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [isDemo, setIsDemo] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [added, setAdded] = useState(false);
 
   const mapPrice = Number(product.unit_price ?? 0);
   const unitPrice = calcDealerUnitPrice({
@@ -27,19 +27,15 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
   const outOfStock = product.available_stock <= 0;
 
   function clampQuantity(next: number) {
-    return Math.min(Math.max(next, 1), Math.max(product.available_stock, 1));
+    return Math.max(next, 1);
   }
 
-  function handleOrder() {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await placeDealerOrder(product.product_id, quantity, isDemo);
-      setMessage({ ok: result.ok, text: result.message });
-      if (result.ok) {
-        setQuantity(1);
-        setIsDemo(false);
-      }
-    });
+  function handleAddToCart() {
+    addItem(product, quantity, isDemo);
+    setAdded(true);
+    setQuantity(1);
+    setIsDemo(false);
+    setTimeout(() => setAdded(false), 1500);
   }
 
   return (
@@ -65,18 +61,13 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           <p className="text-xs text-slate-400">{product.sku}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {outOfStock ? (
-              <span className="text-red-600">품절</span>
+              <span className="text-red-600">재고 없음 (백오더 주문 가능)</span>
             ) : (
               <>가용 재고 {product.available_stock}개</>
             )}
           </p>
           <label className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-            <input
-              type="checkbox"
-              checked={isDemo}
-              disabled={outOfStock || isPending}
-              onChange={(e) => setIsDemo(e.target.checked)}
-            />
+            <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
             데모구매 (소비자가 65% 할인)
           </label>
         </div>
@@ -91,8 +82,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
         <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-1.5 py-1">
           <button
             type="button"
-            className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-            disabled={outOfStock || isPending}
+            className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100"
             onClick={() => setQuantity((q) => clampQuantity(q - 1))}
           >
             −
@@ -100,8 +90,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           <span className="w-8 text-center text-sm">{quantity}</span>
           <button
             type="button"
-            className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-            disabled={outOfStock || isPending}
+            className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100"
             onClick={() => setQuantity((q) => clampQuantity(q + 1))}
           >
             +
@@ -113,13 +102,14 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           <p className="text-sm font-semibold text-brand-700">{currency(subtotal)}</p>
         </div>
 
-        <Button size="sm" disabled={outOfStock || isPending} onClick={handleOrder}>
-          주문하기
+        <Button size="sm" variant={added ? "secondary" : "primary"} onClick={handleAddToCart}>
+          {added ? "담았습니다 ✓" : "담기"}
         </Button>
       </div>
-
-      {message && (
-        <p className={`text-xs sm:ml-auto ${message.ok ? "text-emerald-600" : "text-red-600"}`}>{message.text}</p>
+      {added && (
+        <button type="button" onClick={open} className="text-xs text-brand-600 hover:underline sm:ml-auto">
+          장바구니 보기 →
+        </button>
       )}
     </div>
   );

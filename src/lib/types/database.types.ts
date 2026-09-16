@@ -119,6 +119,7 @@ export interface DealerOrderItem {
   product_id: string;
   quantity: number;
   unit_price: number;
+  is_demo: boolean;
 }
 
 export interface EventRow {
@@ -163,6 +164,12 @@ export interface DealerOrder {
   order_type: DealerOrderType;
   synced_to_accounting: boolean;
   total_amount: number;
+  stock_deducted: boolean;
+  auto_shipping_boxes: number;
+  auto_shipping_fee: number;
+  manual_shipping_fee: number | null;
+  payment_confirmed_at: string | null;
+  payment_confirmed_by: string | null;
   notes: string | null;
   created_at: string;
 }
@@ -176,8 +183,17 @@ export interface DealerOrderAdminRow {
   order_type: DealerOrderType;
   synced_to_accounting: boolean;
   total_amount: number;
+  auto_shipping_boxes: number;
+  auto_shipping_fee: number;
+  manual_shipping_fee: number | null;
+  stock_deducted: boolean;
   dealers: { name: string } | null;
-  dealer_order_items: { quantity: number; unit_price: number; products: { name: string; sku: string } | null }[];
+  dealer_order_items: {
+    quantity: number;
+    unit_price: number;
+    is_demo: boolean;
+    products: { name: string; sku: string } | null;
+  }[];
 }
 
 // A stock item from the periodic 실사 (physical count) snapshot that could

@@ -21,3 +21,120 @@ export async function setDealerOrderSynced(id: string, synced: boolean) {
   if (error) throw new Error(error.message);
   revalidatePath("/dealer-orders");
 }
+
+/**
+ * "입금 확인" — the moment stock actually leaves the warehouse in this
+ * system's model. Deliberately deferred until here (not at order-submit
+ * time) so a dealer can add items to the cart freely without touching real
+ * inventory until an admin has actually seen the money land.
+ *
+ * Decrementing is allowed to go negative on purpose — a shortfall becomes a
+ * visible backorder signal (see the /inventory 백오더 banner) rather than a
+ * blocked confirmation, matching how 이지어드민 already treats backorders
+ * (auto re-orders on next import, but doesn't always happen, so this app
+ * needs to keep it visible too).
+ *
+ * `stock_deducted` guards against double-decrementing if this is somehow
+ * called twice for the same order.
+ */
+export async function confirmDealerOrderPayment(orderId: string, manualShippingFee: number | null) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: order, error: orderErr } = await supabase
+    .from("dealer_orders")
+    .select("id, stock_deducted")
+    .eq("id", orderId)
+    .single();
+  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
+
+  if (!order.stock_deducted) {
+    const { data: items, error: itemsErr } = await supabase
+      .from("dealer_order_items")
+      .select("product_id, quantity")
+      .eq("order_id", orderId);
+    if (itemsErr) throw new Error(itemsErr.message);
+
+    for (const item of items ?? []) {
+      const { data: inv, error: invErr } = await supabase
+        .from("inventory")
+        .select("current_stock")
+        .eq("product_id", item.product_id)
+        .single();
+      if (invErr) throw new Error(`재고 조회 실패: ${invErr.message}`);
+      const nextStock = (inv?.current_stock ?? 0) - item.quantity;
+      const { error: updErr } = await supabase
+        .from("inventory")
+        .update({ current_stock: nextStock, updated_at: new Date().toISOString() })
+        .eq("product_id", item.product_id);
+      if (updErr) throw new Error(`재고 차감 실패: ${updErr.message}`);
+    }
+  }
+
+  const { error } = await supabase
+    .from("dealer_orders")
+    .update({
+      status: "confirmed",
+      stock_deducted: true,
+      manual_shipping_fee: manualShippingFee,
+      payment_confirmed_at: new Date().toISOString(),
+      payment_confirmed_by: user?.id ?? null,
+    })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dealer-orders");
+  revalidatePath("/inventory");
+  revalidatePath("/order");
+}
+
+/**
+ * 주문 거절/취소. 아직 입금 확인 전(재고 미차감)이면 상태만 바꾸고 끝나고,
+ * 이미 재고가 차감된 뒤라면(입금 확인 후 취소하는 경우) 차감분을
+ * 되돌려놓는다.
+ */
+export async function rejectDealerOrder(orderId: string) {
+  const supabase = createClient();
+
+  const { data: order, error: orderErr } = await supabase
+    .from("dealer_orders")
+    .select("id, stock_deducted")
+    .eq("id", orderId)
+    .single();
+  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
+
+  if (order.stock_deducted) {
+    const { data: items, error: itemsErr } = await supabase
+      .from("dealer_order_items")
+      .select("product_id, quantity")
+      .eq("order_id", orderId);
+    if (itemsErr) throw new Error(itemsErr.message);
+
+    for (const item of items ?? []) {
+      const { data: inv, error: invErr } = await supabase
+        .from("inventory")
+        .select("current_stock")
+        .eq("product_id", item.product_id)
+        .single();
+      if (invErr) throw new Error(`재고 조회 실패: ${invErr.message}`);
+      const nextStock = (inv?.current_stock ?? 0) + item.quantity;
+      const { error: updErr } = await supabase
+        .from("inventory")
+        .update({ current_stock: nextStock, updated_at: new Date().toISOString() })
+        .eq("product_id", item.product_id);
+      if (updErr) throw new Error(`재고 복원 실패: ${updErr.message}`);
+    }
+  }
+
+  const { error } = await supabase
+    .from("dealer_orders")
+    .update({ status: "cancelled", stock_deducted: false })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dealer-orders");
+  revalidatePath("/inventory");
+  revalidatePath("/order");
+}
