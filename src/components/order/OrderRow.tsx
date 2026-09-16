@@ -84,10 +84,8 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900">{currency(unitPrice)}</p>
-          {(isDemo || discountRate > 0 || product.fixed_dealer_price != null) && (
-            <p className="text-xs text-slate-400 line-through">{currency(mapPrice)}</p>
-          )}
+          <p className="text-xs text-slate-400">소비자가 {currency(mapPrice)}</p>
+          <p className="text-sm font-semibold text-slate-900">공급가 {currency(unitPrice)}</p>
         </div>
 
         <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-1.5 py-1">
@@ -110,8 +108,9 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           </button>
         </div>
 
-        <div className="w-24 text-right text-sm font-semibold text-brand-700">
-          {currency(subtotal)}
+        <div className="w-28 text-right">
+          <p className="text-[10px] text-slate-400">공급가 합계</p>
+          <p className="text-sm font-semibold text-brand-700">{currency(subtotal)}</p>
         </div>
 
         <Button size="sm" disabled={outOfStock || isPending} onClick={handleOrder}>
