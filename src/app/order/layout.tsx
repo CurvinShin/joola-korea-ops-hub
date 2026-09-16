@@ -7,7 +7,9 @@ export default function OrderLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-        <span className="text-sm font-semibold text-slate-900">JOOLA Korea 딜러 주문</span>
+        <a href="/order" className="text-sm font-semibold text-slate-900 hover:underline">
+          JOOLA Korea 딜러 주문
+        </a>
         <form action={signOut}>
           <Button type="submit" variant="secondary" size="sm">
             로그아웃

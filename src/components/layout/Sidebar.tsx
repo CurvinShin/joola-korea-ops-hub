@@ -38,10 +38,16 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-      <div className="flex h-16 items-center border-b border-slate-100 px-5">
+      {/* Plain <a>, not next/link — clicking this should behave like a home
+          button: always a full reload back to the main dashboard, even
+          when already on it. */}
+      <a
+        href="/dashboard"
+        className="flex h-16 items-center border-b border-slate-100 px-5 hover:bg-slate-50"
+      >
         <span className="text-sm font-semibold text-slate-900">JOOLA Korea</span>
         <span className="ml-1.5 text-sm text-slate-400">운영 허브</span>
-      </div>
+      </a>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         {NAV_SECTIONS.map((section) => (
