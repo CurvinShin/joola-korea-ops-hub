@@ -37,6 +37,20 @@ export function ProductForm({
       </div>
 
       <div>
+        <Label htmlFor="fixed_dealer_price">딜러 고정 공급가 (선택, 부가세 제외)</Label>
+        <Input
+          id="fixed_dealer_price"
+          name="fixed_dealer_price"
+          type="number"
+          placeholder="예: 3200 (비워두면 딜러 할인율로 자동 계산)"
+          defaultValue={defaultValues?.fixed_dealer_price ?? ""}
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          설정하면 딜러 등급/할인율과 무관하게 이 금액으로 고정 판매됩니다 (양말류처럼 별도 협의 단가가 있는 품목용). 데모구매 가격에는 영향 없음.
+        </p>
+      </div>
+
+      <div>
         <Label htmlFor="image_url">제품 사진 URL</Label>
         <Input
           id="image_url"

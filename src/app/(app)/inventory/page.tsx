@@ -25,6 +25,10 @@ export default async function InventoryPage({
 
   const editRow = searchParams.edit ? rows?.find((r) => r.product_id === searchParams.edit) : undefined;
 
+  const { count: gapCount } = await supabase
+    .from("catalog_gaps")
+    .select("id", { count: "exact", head: true });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -36,6 +40,16 @@ export default async function InventoryPage({
           <Button>제품 추가</Button>
         </Link>
       </div>
+
+      {!!gapCount && (
+        <Link
+          href="/inventory/unmatched"
+          className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100"
+        >
+          <span>카탈로그 미매칭 재고 {gapCount}건 — 가격/유형 정보가 없어 제품으로 등록하지 못한 품목이 있습니다</span>
+          <span className="font-medium">보기 →</span>
+        </Link>
+      )}
 
       <form className="flex gap-3">
         <Input name="q" placeholder="이름 또는 상품코드로 검색..." defaultValue={searchParams.q} className="max-w-xs" />

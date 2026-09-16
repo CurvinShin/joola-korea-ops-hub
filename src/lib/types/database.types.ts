@@ -72,6 +72,10 @@ export interface Product {
   unit_cost: number | null;
   unit_price: number | null;
   product_type: ProductType;
+  // Flat dealer supply price that overrides the hardgoods/apparel formula
+  // for regular orders (e.g. team socks sold at an agreed flat price).
+  // Demo purchases ignore this and always use the 65%-off-MSRP formula.
+  fixed_dealer_price: number | null;
   discontinued: boolean;
   created_at: string;
   updated_at: string;
@@ -92,6 +96,7 @@ export interface InventoryStatusRow {
   low_stock_threshold: number;
   is_low_stock: boolean;
   product_type: ProductType;
+  fixed_dealer_price: number | null;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is
@@ -105,6 +110,7 @@ export interface DealerCatalogRow {
   unit_price: number | null;
   available_stock: number;
   product_type: ProductType;
+  fixed_dealer_price: number | null;
 }
 
 export interface DealerOrderItem {
@@ -172,6 +178,20 @@ export interface DealerOrderAdminRow {
   total_amount: number;
   dealers: { name: string } | null;
   dealer_order_items: { quantity: number; unit_price: number; products: { name: string; sku: string } | null }[];
+}
+
+// A stock item from the periodic 실사 (physical count) snapshot that could
+// not be matched to a joola_catalog_prices.json entry (no brand SKU match,
+// or no price/type on file) — so it was never turned into a `products` row.
+// Surfaced on an admin-only "카탈로그 미매칭 재고" page so gaps can be filled
+// in over time without losing track of what's still missing.
+export interface CatalogGap {
+  id: string;
+  source_sku: string | null;
+  source_name: string;
+  qty: number;
+  note: string | null;
+  created_at: string;
 }
 
 export interface PurchaseOrder {

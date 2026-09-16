@@ -21,6 +21,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
     productType: product.product_type,
     discountRatePercent: discountRate,
     isDemo,
+    fixedDealerPrice: product.fixed_dealer_price,
   });
   const subtotal = unitPrice * quantity;
   const outOfStock = product.available_stock <= 0;
@@ -84,7 +85,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className="text-sm font-semibold text-slate-900">{currency(unitPrice)}</p>
-          {(isDemo || discountRate > 0) && (
+          {(isDemo || discountRate > 0 || product.fixed_dealer_price != null) && (
             <p className="text-xs text-slate-400 line-through">{currency(mapPrice)}</p>
           )}
         </div>

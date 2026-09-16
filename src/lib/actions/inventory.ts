@@ -10,6 +10,7 @@ const productSchema = z.object({
   name: z.string().min(1, "제품명을 입력해주세요"),
   category: z.string().optional().or(z.literal("")),
   product_type: z.enum(["hardgoods", "apparel"]).default("hardgoods"),
+  fixed_dealer_price: z.coerce.number().min(0).optional(),
   image_url: z.string().url("올바른 URL 형식이 아닙니다").optional().or(z.literal("")),
   unit_cost: z.coerce.number().min(0).optional(),
   unit_price: z.coerce.number().min(0).optional(),
@@ -25,6 +26,9 @@ function parseProductForm(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   // Checkbox inputs are absent from FormData when unchecked.
   raw.discontinued = formData.has("discontinued") ? "true" : "false";
+  // An empty optional number field arrives as "" — treat it as "not set"
+  // rather than letting z.coerce.number() turn it into 0.
+  if (raw.fixed_dealer_price === "") delete raw.fixed_dealer_price;
   const parsed = productSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(parsed.error.errors.map((e) => e.message).join(", "));
@@ -43,6 +47,7 @@ export async function createProduct(formData: FormData) {
       name: data.name,
       category: data.category || null,
       product_type: data.product_type,
+      fixed_dealer_price: data.fixed_dealer_price ?? null,
       image_url: data.image_url || null,
       unit_cost: data.unit_cost ?? null,
       unit_price: data.unit_price ?? null,
@@ -77,6 +82,7 @@ export async function updateProduct(id: string, formData: FormData) {
       name: data.name,
       category: data.category || null,
       product_type: data.product_type,
+      fixed_dealer_price: data.fixed_dealer_price ?? null,
       image_url: data.image_url || null,
       unit_cost: data.unit_cost ?? null,
       unit_price: data.unit_price ?? null,

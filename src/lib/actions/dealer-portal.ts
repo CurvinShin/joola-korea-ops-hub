@@ -45,7 +45,7 @@ export async function placeDealerOrder(
 
   const { data: product, error: productError } = await supabase
     .from("dealer_catalog")
-    .select("product_id, unit_price, available_stock, product_type")
+    .select("product_id, unit_price, available_stock, product_type, fixed_dealer_price")
     .eq("product_id", productId)
     .single();
   if (productError || !product) {
@@ -64,6 +64,7 @@ export async function placeDealerOrder(
     productType: product.product_type,
     discountRatePercent,
     isDemo,
+    fixedDealerPrice: product.fixed_dealer_price,
   });
   const totalAmount = unitPrice * quantity;
 

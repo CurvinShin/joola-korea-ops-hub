@@ -12,6 +12,12 @@
  *     same rounding as hardgoods. Applies uniformly across product types —
  *     dealers never receive free samples, a demo purchase is simply billed
  *     at this fixed discount instead of the dealer's normal rate.
+ *   - fixed dealer price override: a handful of items (e.g. team socks) are
+ *     sold at a flat supply price agreed with dealers that doesn't track the
+ *     hardgoods/apparel formulas at all — set products.fixed_dealer_price
+ *     for those and it wins over the formula for regular orders. Demo
+ *     purchases still use the normal 65%-off-MSRP formula even when a fixed
+ *     price is set, since the demo discount is a separate, uniform policy.
  *
  * All prices are VAT-exclusive (공급가액); 경리나라 adds 10% VAT on top when
  * the actual 견적서 is created there.
@@ -47,17 +53,20 @@ export function calcDemoPrice(mapPrice: number): number {
 /**
  * The single entry point both call sites should use: given a product's MSRP
  * (mapPrice, stored as products.unit_price), its type, the dealer's discount
- * rate (0-100, percent), and whether this line is a demo purchase, returns
- * the VAT-exclusive unit price to charge.
+ * rate (0-100, percent), whether this line is a demo purchase, and an
+ * optional fixed dealer price override, returns the VAT-exclusive unit price
+ * to charge.
  */
 export function calcDealerUnitPrice(params: {
   mapPrice: number;
   productType: ProductType;
   discountRatePercent: number;
   isDemo: boolean;
+  fixedDealerPrice?: number | null;
 }): number {
-  const { mapPrice, productType, discountRatePercent, isDemo } = params;
+  const { mapPrice, productType, discountRatePercent, isDemo, fixedDealerPrice } = params;
   if (isDemo) return calcDemoPrice(mapPrice);
+  if (fixedDealerPrice != null) return fixedDealerPrice;
   if (productType === "apparel") return calcApparelPrice(mapPrice);
   return calcHardgoodsPrice(mapPrice, discountRatePercent);
 }
