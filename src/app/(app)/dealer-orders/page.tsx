@@ -62,11 +62,11 @@ export default async function DealerOrdersPage() {
                         .join(", ") || "—"}
                     </Td>
                     <Td>
-                      <Badge tone={o.order_type === "sample" ? "purple" : "slate"}>
+                      <Badge tone={o.order_type === "demo" ? "purple" : "slate"}>
                         {dealerOrderTypeLabel[o.order_type] ?? o.order_type}
                       </Badge>
                     </Td>
-                    <Td>{o.order_type === "sample" ? "무상" : currency(Number(o.total_amount))}</Td>
+                    <Td>{currency(Number(o.total_amount))}</Td>
                     <Td className="text-right">
                       <DealerOrderRowActions orderId={o.id} status={o.status} synced={o.synced_to_accounting} />
                     </Td>

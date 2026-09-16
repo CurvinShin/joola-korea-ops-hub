@@ -90,12 +90,12 @@ export default async function OrderPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {o.order_type === "sample" && (
+                    {o.order_type === "demo" && (
                       <Badge tone="purple">{dealerOrderTypeLabel[o.order_type]}</Badge>
                     )}
                     <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>
                     <span className="text-sm font-medium text-slate-900">
-                      {o.order_type === "sample" ? "무상" : currency(Number(o.total_amount))}
+                      {currency(Number(o.total_amount))}
                     </span>
                   </div>
                 </div>

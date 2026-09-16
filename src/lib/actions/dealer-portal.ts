@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { calcDealerUnitPrice } from "@/lib/utils/pricing";
 
 type PlaceOrderResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -15,7 +16,7 @@ type PlaceOrderResult = { ok: true; message: string } | { ok: false; message: st
 export async function placeDealerOrder(
   productId: string,
   quantity: number,
-  isSample: boolean = false
+  isDemo: boolean = false
 ): Promise<PlaceOrderResult> {
   if (!Number.isFinite(quantity) || quantity < 1) {
     return { ok: false, message: "수량을 확인해주세요." };
@@ -44,7 +45,7 @@ export async function placeDealerOrder(
 
   const { data: product, error: productError } = await supabase
     .from("dealer_catalog")
-    .select("product_id, unit_price, available_stock")
+    .select("product_id, unit_price, available_stock, product_type")
     .eq("product_id", productId)
     .single();
   if (productError || !product) {
@@ -54,10 +55,16 @@ export async function placeDealerOrder(
     return { ok: false, message: `가용 재고(${product.available_stock}개)보다 많이 주문할 수 없습니다.` };
   }
 
-  const basePrice = Number(product.unit_price ?? 0);
-  const discountRate = Number(dealer.discount_rate ?? 0);
-  // Samples are provided free of charge — no discount math needed, just 0.
-  const unitPrice = isSample ? 0 : Math.round(basePrice * (1 - discountRate / 100));
+  const mapPrice = Number(product.unit_price ?? 0);
+  const discountRatePercent = Number(dealer.discount_rate ?? 0);
+  // Pricing is always computed here from trusted DB values (never trusted
+  // from the client) — see src/lib/utils/pricing.ts for the formulas.
+  const unitPrice = calcDealerUnitPrice({
+    mapPrice,
+    productType: product.product_type,
+    discountRatePercent,
+    isDemo,
+  });
   const totalAmount = unitPrice * quantity;
 
   const { data: order, error: orderError } = await supabase
@@ -65,7 +72,7 @@ export async function placeDealerOrder(
     .insert({
       dealer_id: dealer.id,
       status: "confirmed",
-      order_type: isSample ? "sample" : "regular",
+      order_type: isDemo ? "demo" : "regular",
       total_amount: totalAmount,
     })
     .select("id")

@@ -51,9 +51,17 @@ export interface Dealer {
   moq_target: number;
   outstanding_issues: string | null;
   notes: string | null;
+  address: string | null;
+  ship_recipient: string | null;
+  payment_terms: string | null;
+  kr_code: string | null;
+  next_seq: number;
+  last_seq_year: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ProductType = "hardgoods" | "apparel";
 
 export interface Product {
   id: string;
@@ -63,6 +71,7 @@ export interface Product {
   image_url: string | null;
   unit_cost: number | null;
   unit_price: number | null;
+  product_type: ProductType;
   discontinued: boolean;
   created_at: string;
   updated_at: string;
@@ -82,6 +91,7 @@ export interface InventoryStatusRow {
   eta: string | null;
   low_stock_threshold: number;
   is_low_stock: boolean;
+  product_type: ProductType;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is
@@ -94,6 +104,7 @@ export interface DealerCatalogRow {
   image_url: string | null;
   unit_price: number | null;
   available_stock: number;
+  product_type: ProductType;
 }
 
 export interface DealerOrderItem {
@@ -136,7 +147,7 @@ export interface Task {
   updated_at: string;
 }
 
-export type DealerOrderType = "regular" | "sample";
+export type DealerOrderType = "regular" | "demo";
 
 export interface DealerOrder {
   id: string;

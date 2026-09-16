@@ -83,5 +83,5 @@ export const dealerOrderStatusLabel: Record<string, string> = {
 
 export const dealerOrderTypeLabel: Record<string, string> = {
   regular: "일반판매",
-  sample: "샘플",
+  demo: "데모구매",
 };

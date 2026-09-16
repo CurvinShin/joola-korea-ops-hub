@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, Select } from "@/components/ui/Input";
 import type { InventoryStatusRow } from "@/lib/types/database.types";
 
 export function ProductForm({
@@ -22,9 +22,18 @@ export function ProductForm({
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="category">카테고리</Label>
-        <Input id="category" name="category" defaultValue={defaultValues?.category ?? ""} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="category">카테고리</Label>
+          <Input id="category" name="category" defaultValue={defaultValues?.category ?? ""} />
+        </div>
+        <div>
+          <Label htmlFor="product_type">상품 구분 (가격 공식)</Label>
+          <Select id="product_type" name="product_type" defaultValue={defaultValues?.product_type ?? "hardgoods"}>
+            <option value="hardgoods">하드굿즈 (패들/가방/네트 등)</option>
+            <option value="apparel">의류 (전 딜러 60% 고정 할인)</option>
+          </Select>
+        </div>
       </div>
 
       <div>
