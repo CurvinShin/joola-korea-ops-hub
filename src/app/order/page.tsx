@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { OrderRow } from "@/components/order/OrderRow";
+import { CatalogBrowser } from "@/components/order/CatalogBrowser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
@@ -62,9 +62,7 @@ export default async function OrderPage() {
         </CardHeader>
         <CardContent>
           {catalog && catalog.length > 0 ? (
-            catalog.map((p) => (
-              <OrderRow key={p.product_id} product={p as DealerCatalogRow} discountRate={discountRate} />
-            ))
+            <CatalogBrowser catalog={catalog as DealerCatalogRow[]} discountRate={discountRate} />
           ) : (
             <p className="py-8 text-center text-sm text-slate-400">등록된 제품이 없습니다.</p>
           )}
