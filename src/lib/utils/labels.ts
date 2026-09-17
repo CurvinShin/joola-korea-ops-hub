@@ -113,3 +113,17 @@ export const krRegionLabel: Record<string, string> = {
   ulsan: "울산",
   jeju: "제주",
 };
+
+export const ambassadorTypeLabel: Record<string, string> = {
+  player: "선수",
+  ambassador: "앰버서더",
+  influencer: "인플루언서",
+};
+
+export const contractStatusLabel: Record<string, string> = {
+  prospect: "잠재",
+  negotiating: "협의중",
+  active: "활성",
+  expired: "만료",
+  ended: "종료",
+};

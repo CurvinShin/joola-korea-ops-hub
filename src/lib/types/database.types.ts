@@ -49,6 +49,9 @@ export type KrRegion =
   | "ulsan"
   | "jeju";
 
+export type AmbassadorType = "player" | "ambassador" | "influencer";
+export type ContractStatus = "prospect" | "negotiating" | "active" | "expired" | "ended";
+
 export interface Profile {
   id: string;
   full_name: string | null;
@@ -291,6 +294,27 @@ export interface Facility {
   contact_email: string | null;
   contact_phone: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Ambassador {
+  id: string;
+  name: string;
+  type: AmbassadorType;
+  contract_status: ContractStatus;
+  contract_start: string | null;
+  contract_end: string | null;
+  compensation: string | null;
+  equipment_support: string | null;
+  kpi: string | null;
+  social_media_handle: string | null;
+  content_obligations: string | null;
+  performance_notes: string | null;
+  email: string | null;
+  phone: string | null;
+  main_paddle: string | null;
+  dupr_rating: number | null;
   created_at: string;
   updated_at: string;
 }
