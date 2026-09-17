@@ -29,7 +29,11 @@ export default async function DealersPage({
   searchParams: { q?: string; status?: string; new?: string };
 }) {
   const supabase = createClient();
-  let query = supabase.from("dealers").select("*").order("name");
+  let query = supabase
+    .from("dealers")
+    .select("*")
+    .order("kr_code", { ascending: true, nullsFirst: false })
+    .order("name");
 
   if (searchParams.q) {
     query = query.ilike("name", `%${searchParams.q}%`);
