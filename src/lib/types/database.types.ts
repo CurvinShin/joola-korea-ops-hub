@@ -237,6 +237,20 @@ export interface InventorySnapshot {
   created_at: string;
 }
 
+// Row shape of `dealer_quotes` — one row per 견적서 PDF (see migration 0014),
+// used to show a per-quote breakdown (order no · date · amount · 결제조건)
+// underneath the aggregate ytd/mtd_quote_amount numbers on `dealers.*`.
+export interface DealerQuote {
+  id: string;
+  kr_code: string;
+  order_no: string;
+  quote_date: string;
+  amount: number;
+  payment_terms: string | null;
+  source_file: string;
+  created_at: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   po_number: string;

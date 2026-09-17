@@ -40,6 +40,9 @@ export default async function DealersPage({
 
   const { data: dealers, error } = await query;
 
+  const ytdGrandTotal = (dealers ?? []).reduce((sum, d) => sum + Number(d.ytd_quote_amount ?? 0), 0);
+  const mtdGrandTotal = (dealers ?? []).reduce((sum, d) => sum + Number(d.mtd_quote_amount ?? 0), 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -51,6 +54,27 @@ export default async function DealersPage({
           <Button>딜러 추가</Button>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>구매액 합계 (견적서 기준)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-xs text-slate-400">
+            아래 목록에 표시된 딜러 {dealers?.length ?? 0}곳 기준 합계입니다.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-slate-400">올해 구매액 합계</p>
+              <p className="text-lg font-semibold text-slate-900">{currency(ytdGrandTotal)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">이번달 구매액 합계</p>
+              <p className="text-lg font-semibold text-slate-900">{currency(mtdGrandTotal)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <form className="flex flex-wrap gap-3">
         <Input name="q" placeholder="이름으로 검색..." defaultValue={searchParams.q} className="max-w-xs" />

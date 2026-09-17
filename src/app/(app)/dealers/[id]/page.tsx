@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { DealerForm } from "@/components/dealers/DealerForm";
 import { format, startOfYear } from "date-fns";
 import { orderStatusLabel } from "@/lib/utils/labels";
+import type { DealerQuote } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +20,30 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
   const supabase = createClient();
   const yearStart = format(startOfYear(new Date()), "yyyy-MM-dd");
 
-  const [{ data: dealer }, { data: orders }] = await Promise.all([
-    supabase.from("dealers").select("*").eq("id", params.id).maybeSingle(),
+  const { data: dealer } = await supabase.from("dealers").select("*").eq("id", params.id).maybeSingle();
+
+  if (!dealer) notFound();
+
+  const [{ data: orders }, { data: quotes }] = await Promise.all([
     supabase
       .from("dealer_orders")
       .select("id, order_date, status, total_amount")
       .eq("dealer_id", params.id)
       .order("order_date", { ascending: false }),
+    dealer.kr_code
+      ? supabase
+          .from("dealer_quotes")
+          .select("id, order_no, quote_date, amount, payment_terms, source_file")
+          .eq("kr_code", dealer.kr_code)
+          .order("quote_date", { ascending: false })
+      : Promise.resolve({ data: [] as DealerQuote[] }),
   ]);
-
-  if (!dealer) notFound();
 
   const ytdTotal = (orders ?? [])
     .filter((o) => o.order_date >= yearStart)
     .reduce((sum, o) => sum + Number(o.total_amount), 0);
   const moqPct = dealer.moq_target > 0 ? Math.min(100, Math.round((ytdTotal / dealer.moq_target) * 100)) : null;
+  const dealerQuotes = (quotes ?? []) as unknown as DealerQuote[];
 
   const updateWithId = updateDealer.bind(null, dealer.id);
   const deleteWithId = deleteDealer.bind(null, dealer.id);
@@ -104,6 +114,40 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
               </div>
             </CardContent>
           </Card>
+
+          {dealer.kr_code && (
+            <Card>
+              <CardHeader>
+                <CardTitle>견적서 이력</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {dealerQuotes.length > 0 ? (
+                  <Table>
+                    <Thead>
+                      <Tr>
+                        <Th>주문번호</Th>
+                        <Th>견적일자</Th>
+                        <Th className="text-right">금액</Th>
+                        <Th>결제조건</Th>
+                      </Tr>
+                    </Thead>
+                    <tbody>
+                      {dealerQuotes.map((q) => (
+                        <Tr key={q.id}>
+                          <Td className="font-mono text-xs">{q.order_no}</Td>
+                          <Td>{q.quote_date}</Td>
+                          <Td className="text-right">{currency(Number(q.amount))}</Td>
+                          <Td>{q.payment_terms ?? "—"}</Td>
+                        </Tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                ) : (
+                  <p className="p-8 text-center text-sm text-slate-400">이 딜러의 2026년 견적서가 없습니다.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
