@@ -17,7 +17,7 @@ export default async function DealerOrdersPage() {
   const { data: orders, error } = await supabase
     .from("dealer_orders")
     .select(
-      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
+      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
     )
     .order("order_date", { ascending: false })
     .limit(100);
@@ -66,7 +66,12 @@ export default async function DealerOrdersPage() {
                         {dealerOrderTypeLabel[o.order_type] ?? o.order_type}
                       </Badge>
                     </Td>
-                    <Td>{currency(Number(o.total_amount))}</Td>
+                    <Td>
+                      {currency(Number(o.total_amount))}
+                      {o.confirmed_total_amount != null && (
+                        <span className="ml-1 text-[10px] text-slate-400">(확정)</span>
+                      )}
+                    </Td>
                     <Td>
                       {o.manual_shipping_fee != null
                         ? currency(Number(o.auto_shipping_fee) + Number(o.manual_shipping_fee))
@@ -81,6 +86,9 @@ export default async function DealerOrdersPage() {
                         synced={o.synced_to_accounting}
                         autoShippingFee={Number(o.auto_shipping_fee)}
                         manualShippingFee={o.manual_shipping_fee != null ? Number(o.manual_shipping_fee) : null}
+                        suggestedTotal={
+                          Number(o.total_amount) + Number(o.auto_shipping_fee) + Number(o.manual_shipping_fee ?? 0)
+                        }
                       />
                     </Td>
                   </Tr>

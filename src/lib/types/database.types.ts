@@ -170,6 +170,7 @@ export interface DealerOrder {
   auto_shipping_boxes: number;
   auto_shipping_fee: number;
   manual_shipping_fee: number | null;
+  confirmed_total_amount: number | null;
   order_number: string | null;
   payment_confirmed_at: string | null;
   payment_confirmed_by: string | null;
@@ -189,6 +190,7 @@ export interface DealerOrderAdminRow {
   auto_shipping_boxes: number;
   auto_shipping_fee: number;
   manual_shipping_fee: number | null;
+  confirmed_total_amount: number | null;
   order_number: string | null;
   stock_deducted: boolean;
   dealers: {

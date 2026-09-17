@@ -24,17 +24,23 @@ export function DealerOrderRowActions({
   synced,
   autoShippingFee,
   manualShippingFee,
+  suggestedTotal,
 }: {
   orderId: string;
   status: string;
   synced: boolean;
   autoShippingFee: number;
   manualShippingFee: number | null;
+  suggestedTotal: number;
 }) {
   const [isPending, startTransition] = useTransition();
   const [shippingInput, setShippingInput] = useState(
     manualShippingFee != null ? String(manualShippingFee) : ""
   );
+  // 실제 견적서(배송비 포함) 금액에 맞춰 관리자가 직접 조정할 수 있는 총액.
+  // 상품 공급가액 + 자동/추가 배송비로 계산한 값을 기본으로 보여주되,
+  // 견적서 금액과 정확히 일치시킬 수 있도록 자유롭게 고칠 수 있게 한다.
+  const [totalInput, setTotalInput] = useState(String(suggestedTotal));
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -59,12 +65,28 @@ export function DealerOrderRowActions({
             className="!w-28 py-1 text-xs"
             disabled={isPending}
           />
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[10px] leading-none text-slate-400">확정총액(배송비포함)</span>
+            <Input
+              type="number"
+              min={0}
+              title="견적서(배송비 포함) 금액과 일치시키려면 여기서 직접 고치세요"
+              value={totalInput}
+              onChange={(e) => setTotalInput(e.target.value)}
+              className="!w-32 py-1 text-xs font-medium"
+              disabled={isPending}
+            />
+          </div>
           <Button
             size="sm"
-            disabled={isPending}
+            disabled={isPending || totalInput === ""}
             onClick={() =>
               startTransition(() =>
-                confirmDealerOrderPayment(orderId, shippingInput === "" ? null : Number(shippingInput))
+                confirmDealerOrderPayment(
+                  orderId,
+                  shippingInput === "" ? null : Number(shippingInput),
+                  Number(totalInput)
+                )
               )
             }
           >

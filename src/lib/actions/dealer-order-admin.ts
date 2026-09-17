@@ -37,7 +37,11 @@ export async function setDealerOrderSynced(id: string, synced: boolean) {
  * `stock_deducted` guards against double-decrementing if this is somehow
  * called twice for the same order.
  */
-export async function confirmDealerOrderPayment(orderId: string, manualShippingFee: number | null) {
+export async function confirmDealerOrderPayment(
+  orderId: string,
+  manualShippingFee: number | null,
+  confirmedTotalAmount: number | null
+) {
   const supabase = createClient();
   const {
     data: { user },
@@ -73,16 +77,21 @@ export async function confirmDealerOrderPayment(orderId: string, manualShippingF
     }
   }
 
-  const { error } = await supabase
-    .from("dealer_orders")
-    .update({
-      status: "confirmed",
-      stock_deducted: true,
-      manual_shipping_fee: manualShippingFee,
-      payment_confirmed_at: new Date().toISOString(),
-      payment_confirmed_by: user?.id ?? null,
-    })
-    .eq("id", orderId);
+  const updatePayload: Record<string, unknown> = {
+    status: "confirmed",
+    stock_deducted: true,
+    manual_shipping_fee: manualShippingFee,
+    confirmed_total_amount: confirmedTotalAmount,
+    payment_confirmed_at: new Date().toISOString(),
+    payment_confirmed_by: user?.id ?? null,
+  };
+  // 관리자가 입력한 확정 총액이 있으면 total_amount 자체도 그 값으로 맞춰서,
+  // 이후로는 목록/상세 어디를 봐도 실제 입금액과 같은 숫자가 보이게 한다.
+  if (confirmedTotalAmount != null) {
+    updatePayload.total_amount = confirmedTotalAmount;
+  }
+
+  const { error } = await supabase.from("dealer_orders").update(updatePayload).eq("id", orderId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/dealer-orders");
