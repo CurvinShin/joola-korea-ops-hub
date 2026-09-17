@@ -12,44 +12,13 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: { q?: string; new?: string; edit?: string; category?: string; subcategory?: string };
+  searchParams: { new?: string; edit?: string };
 }) {
   const supabase = createClient();
-  let query = supabase.from("inventory_status").select("*").order("name");
-  if (searchParams.category) {
-    query = query.eq("category", searchParams.category);
-  }
-  if (searchParams.subcategory) {
-    query = query.eq("subcategory", searchParams.subcategory);
-  }
-  const { data: rows, error } = await query;
 
-  // 필터 드롭다운에 쓸 카테고리 전체 목록 — 지금 필터링된 결과와 무관하게 항상 전체
-  // 선택지가 보이도록 products 테이블에서 따로 조회한다.
-  const { data: categoryRows } = await supabase.from("products").select("category").not("category", "is", null);
-  const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.category as string))).sort();
-
-  // 카테고리 빠른 필터(원클릭 탭)용 카테고리별 개수
-  const categoryCounts: Record<string, number> = {};
-  for (const r of categoryRows ?? []) {
-    const cat = r.category as string | null;
-    if (cat) categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-  }
-  const { count: totalProductCount } = await supabase
-    .from("products")
-    .select("id", { count: "exact", head: true });
-
-  // 서브카테고리는 선택된 카테고리 안에서만 의미가 있으므로, 카테고리가 선택된
-  // 경우에만 그 안의 서브카테고리 목록을 조회한다.
-  let subcategories: string[] = [];
-  if (searchParams.category) {
-    const { data: subcategoryRows } = await supabase
-      .from("products")
-      .select("subcategory")
-      .eq("category", searchParams.category)
-      .not("subcategory", "is", null);
-    subcategories = Array.from(new Set((subcategoryRows ?? []).map((r) => r.subcategory as string))).sort();
-  }
+  // 카테고리·서브카테고리·검색은 모두 InventoryBrowser 안에서 즉시(클라이언트 사이드)
+  // 처리하므로, 여기서는 전체 목록을 한 번만 불러온다 (제품 수가 많지 않아 충분히 빠름).
+  const { data: rows, error } = await supabase.from("inventory_status").select("*").order("name");
 
   const editRow = searchParams.edit ? rows?.find((r) => r.product_id === searchParams.edit) : undefined;
 
@@ -115,61 +84,6 @@ export default async function InventoryPage({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={{ pathname: "/inventory", query: searchParams.q ? { q: searchParams.q } : {} }}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-            !searchParams.category
-              ? "bg-brand-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-          }`}
-        >
-          전체 ({totalProductCount ?? 0})
-        </Link>
-        {categories.map((c) => (
-          <Link
-            key={c}
-            href={{
-              pathname: "/inventory",
-              query: searchParams.q ? { q: searchParams.q, category: c } : { category: c },
-            }}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              searchParams.category === c
-                ? "bg-brand-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            {c} ({categoryCounts[c] ?? 0})
-          </Link>
-        ))}
-      </div>
-
-      {searchParams.category && subcategories.length > 0 && (
-        <form className="flex flex-wrap items-end gap-3">
-          <input type="hidden" name="category" value={searchParams.category ?? ""} />
-          <select
-            name="subcategory"
-            defaultValue={searchParams.subcategory ?? ""}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="">전체 서브카테고리</option>
-            {subcategories.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <Button type="submit" variant="secondary">
-            적용
-          </Button>
-          {(searchParams.category || searchParams.subcategory) && (
-            <Link href="/inventory" className="text-xs text-slate-400 hover:underline">
-              필터 초기화
-            </Link>
-          )}
-        </form>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle>제품 {rows?.length ?? 0}개</CardTitle>
@@ -177,7 +91,7 @@ export default async function InventoryPage({
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
           {rows && rows.length > 0 ? (
-            <div className="p-4">
+            <div className="space-y-4 p-4">
               <InventoryBrowser rows={rows} deleteProduct={deleteProduct} />
             </div>
           ) : (

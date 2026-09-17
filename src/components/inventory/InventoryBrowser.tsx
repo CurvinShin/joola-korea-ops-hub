@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
+import { cn } from "@/lib/utils/cn";
+import { CATEGORY_ORDER } from "@/lib/utils/categoryOrder";
 import type { InventoryStatusRow } from "@/lib/types/database.types";
 import type { deleteProduct as deleteProductAction } from "@/lib/actions/inventory";
 
@@ -16,15 +18,106 @@ export function InventoryBrowser({
   deleteProduct: typeof deleteProductAction;
 }) {
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [subcategory, setSubcategory] = useState<string | null>(null);
+
+  const categories = useMemo(() => {
+    const present = new Set(rows.map((r) => r.category).filter((c): c is string => !!c));
+    const ordered = CATEGORY_ORDER.filter((c) => present.has(c));
+    const extra = [...present].filter((c) => !CATEGORY_ORDER.includes(c)).sort();
+    return [...ordered, ...extra];
+  }, [rows]);
+
+  // 선택된 카테고리 안에서만 의미가 있는 서브카테고리 목록 (예: 패들 → Champion/Edge/Pro)
+  const subcategories = useMemo(() => {
+    if (!category) return [];
+    const present = new Set(
+      rows
+        .filter((r) => r.category === category)
+        .map((r) => r.subcategory)
+        .filter((s): s is string => !!s)
+    );
+    return [...present].sort();
+  }, [rows, category]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q));
-  }, [rows, query]);
+    return rows.filter((r) => {
+      if (category && r.category !== category) return false;
+      if (subcategory && r.subcategory !== subcategory) return false;
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q);
+    });
+  }, [rows, query, category, subcategory]);
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setCategory(null);
+            setSubcategory(null);
+          }}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+            category === null ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          )}
+        >
+          전체 ({rows.length})
+        </button>
+        {categories.map((c) => {
+          const count = rows.filter((r) => r.category === c).length;
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => {
+                setCategory(c);
+                setSubcategory(null);
+              }}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                category === c ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              )}
+            >
+              {c} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {category && subcategories.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSubcategory(null)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium",
+              subcategory === null ? "bg-slate-700 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+            )}
+          >
+            전체
+          </button>
+          {subcategories.map((s) => {
+            const count = rows.filter((r) => r.category === category && r.subcategory === s).length;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSubcategory(s)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium",
+                  subcategory === s ? "bg-slate-700 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                )}
+              >
+                {s} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}

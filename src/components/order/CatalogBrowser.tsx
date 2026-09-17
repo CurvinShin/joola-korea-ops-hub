@@ -4,13 +4,8 @@ import { useMemo, useState } from "react";
 import { OrderRow } from "@/components/order/OrderRow";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
+import { CATEGORY_ORDER } from "@/lib/utils/categoryOrder";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
-
-// Fixed display order for category tabs — not alphabetical, matches how
-// JOOLA Korea actually thinks about the product lineup (paddles first,
-// clothing/socks last). Anything with an unexpected category value still
-// shows up under "전체" and, as a fallback, its own tab.
-const CATEGORY_ORDER = ["패들", "가방", "액세서리", "공", "어셈블리", "신발", "양말", "의류"];
 
 export function CatalogBrowser({
   catalog,
@@ -21,6 +16,7 @@ export function CatalogBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [subcategory, setSubcategory] = useState<string | null>(null);
 
   const categories = useMemo(() => {
     const present = new Set(catalog.map((p) => p.category).filter((c): c is string => !!c));
@@ -29,14 +25,27 @@ export function CatalogBrowser({
     return [...ordered, ...extra];
   }, [catalog]);
 
+  // 선택된 카테고리 안에서만 의미가 있는 서브카테고리 목록 (예: 패들 → Champion/Edge/Pro)
+  const subcategories = useMemo(() => {
+    if (!category) return [];
+    const present = new Set(
+      catalog
+        .filter((p) => p.category === category)
+        .map((p) => p.subcategory)
+        .filter((s): s is string => !!s)
+    );
+    return [...present].sort();
+  }, [catalog, category]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalog.filter((p) => {
       if (category && p.category !== category) return false;
+      if (subcategory && p.subcategory !== subcategory) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
-  }, [catalog, query, category]);
+  }, [catalog, query, category, subcategory]);
 
   return (
     <div>
@@ -50,7 +59,10 @@ export function CatalogBrowser({
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            onClick={() => setCategory(null)}
+            onClick={() => {
+              setCategory(null);
+              setSubcategory(null);
+            }}
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium",
               category === null ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -64,7 +76,10 @@ export function CatalogBrowser({
               <button
                 key={c}
                 type="button"
-                onClick={() => setCategory(c)}
+                onClick={() => {
+                  setCategory(c);
+                  setSubcategory(null);
+                }}
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium",
                   category === c ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -75,6 +90,37 @@ export function CatalogBrowser({
             );
           })}
         </div>
+
+        {category && subcategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSubcategory(null)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium",
+                subcategory === null ? "bg-slate-700 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+              )}
+            >
+              전체
+            </button>
+            {subcategories.map((s) => {
+              const count = catalog.filter((p) => p.category === category && p.subcategory === s).length;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSubcategory(s)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium",
+                    subcategory === s ? "bg-slate-700 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  )}
+                >
+                  {s} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {filtered.length > 0 ? (

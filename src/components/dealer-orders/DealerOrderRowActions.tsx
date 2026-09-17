@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   confirmDealerOrderPayment,
+  deleteDealerOrder,
   rejectDealerOrder,
   setDealerOrderStatus,
   setDealerOrderSynced,
@@ -101,6 +102,20 @@ export function DealerOrderRowActions({
             </Select>
           ) : (
             <span className="text-xs text-slate-400">{dealerOrderStatusLabel.cancelled}</span>
+          )}
+          {status === "cancelled" && (
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={isPending}
+              onClick={() => {
+                if (confirm("이 취소된 주문을 완전히 삭제할까요? 되돌릴 수 없습니다.")) {
+                  startTransition(() => deleteDealerOrder(orderId));
+                }
+              }}
+            >
+              삭제
+            </Button>
           )}
           {status !== "cancelled" && (
             <Button

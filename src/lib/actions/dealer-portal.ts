@@ -94,6 +94,17 @@ export async function placeDealerCartOrder(
   const autoShippingFee = autoShippingBoxes * SHIPPING_FEE_PER_BOX;
   const allDemo = rows.every((r) => r.is_demo);
 
+  // 딜러별/연도별 순번으로 주문 번호를 미리 발급 (예: KR05-2630). dealers 행을
+  // for update로 잠그는 DB 함수라 동시 주문에도 번호가 겹치지 않는다. 번호
+  // 발급이 실패해도(예: kr_code 미설정) 주문 자체는 계속 생성되도록 order_number
+  // 는 null로 두고 진행한다.
+  const { data: orderNumber, error: orderNumberError } = await supabase.rpc("assign_dealer_order_number", {
+    p_dealer_id: dealer.id,
+  });
+  if (orderNumberError) {
+    console.error("assign_dealer_order_number failed", orderNumberError);
+  }
+
   const { data: order, error: orderError } = await supabase
     .from("dealer_orders")
     .insert({
@@ -103,6 +114,7 @@ export async function placeDealerCartOrder(
       total_amount: subtotal,
       auto_shipping_boxes: autoShippingBoxes,
       auto_shipping_fee: autoShippingFee,
+      order_number: orderNumber ?? null,
     })
     .select("id")
     .single();

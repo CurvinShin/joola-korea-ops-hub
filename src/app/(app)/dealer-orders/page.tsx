@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { DealerOrderRowActions } from "@/components/dealer-orders/DealerOrderRowActions";
+import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
 import { dealerOrderTypeLabel } from "@/lib/utils/labels";
 import type { DealerOrderAdminRow } from "@/lib/types/database.types";
 
@@ -16,7 +17,7 @@ export default async function DealerOrdersPage() {
   const { data: orders, error } = await supabase
     .from("dealer_orders")
     .select(
-      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, stock_deducted, dealers(name), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
+      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
     )
     .order("order_date", { ascending: false })
     .limit(100);
@@ -58,12 +59,7 @@ export default async function DealerOrdersPage() {
                     <Td className="whitespace-nowrap">{o.order_date}</Td>
                     <Td className="font-medium text-slate-900">{o.dealers?.name ?? "—"}</Td>
                     <Td>
-                      {o.dealer_order_items
-                        ?.map(
-                          (it) =>
-                            `${it.products?.name ?? "—"} x${it.quantity}${it.is_demo ? " (데모)" : ""}`
-                        )
-                        .join(", ") || "—"}
+                      <OrderDetailModal order={o} />
                     </Td>
                     <Td>
                       <Badge tone={o.order_type === "demo" ? "purple" : "slate"}>

@@ -138,3 +138,30 @@ export async function rejectDealerOrder(orderId: string) {
   revalidatePath("/inventory");
   revalidatePath("/order");
 }
+
+/**
+ * 취소된 주문을 관리자 화면에서 완전히 삭제 (dealer_order_items는
+ * on delete cascade로 함께 삭제됨). 목록에서 취소된 주문이 계속 쌓여
+ * 보이는 걸 정리하기 위한 것으로, 이미 "취소" 상태인 주문만 지울 수 있게
+ * 서버에서도 다시 한 번 확인한다 — 진행 중인 주문이 실수로 삭제되는 것을
+ * 막기 위해서다. (재고는 취소 시점에 이미 rejectDealerOrder에서 복원되었으므로
+ * 여기서는 건드리지 않는다.)
+ */
+export async function deleteDealerOrder(orderId: string) {
+  const supabase = createClient();
+
+  const { data: order, error: orderErr } = await supabase
+    .from("dealer_orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .single();
+  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
+  if (order.status !== "cancelled") {
+    throw new Error("취소된 주문만 삭제할 수 있습니다.");
+  }
+
+  const { error } = await supabase.from("dealer_orders").delete().eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dealer-orders");
+}
