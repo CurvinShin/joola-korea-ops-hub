@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useCart } from "@/components/order/CartContext";
 import { Button } from "@/components/ui/Button";
 import { calcDealerUnitPrice } from "@/lib/utils/pricing";
@@ -12,6 +12,7 @@ const currency = (n: number) =>
 export function OrderRow({ product, discountRate }: { product: DealerCatalogRow; discountRate: number }) {
   const { addItem, open } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [quantityText, setQuantityText] = useState("1");
   const [isDemo, setIsDemo] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -30,10 +31,28 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
     return Math.max(next, 1);
   }
 
+  function applyQuantity(next: number) {
+    const clamped = clampQuantity(next);
+    setQuantity(clamped);
+    setQuantityText(String(clamped));
+  }
+
+  function handleQuantityTextChange(e: ChangeEvent<HTMLInputElement>) {
+    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+    setQuantityText(digitsOnly);
+    if (digitsOnly !== "") {
+      setQuantity(clampQuantity(Number(digitsOnly)));
+    }
+  }
+
+  function handleQuantityTextBlur() {
+    applyQuantity(quantityText === "" ? 1 : Number(quantityText));
+  }
+
   function handleAddToCart() {
     addItem(product, quantity, isDemo);
     setAdded(true);
-    setQuantity(1);
+    applyQuantity(1);
     setIsDemo(false);
     setTimeout(() => setAdded(false), 1500);
   }
@@ -83,15 +102,27 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           <button
             type="button"
             className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100"
-            onClick={() => setQuantity((q) => clampQuantity(q - 1))}
+            onClick={() => applyQuantity(quantity - 1)}
           >
             −
           </button>
-          <span className="w-8 text-center text-sm">{quantity}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label="수량"
+            value={quantityText}
+            onChange={handleQuantityTextChange}
+            onBlur={handleQuantityTextBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            className="w-10 rounded border border-transparent bg-transparent text-center text-sm focus:border-slate-300 focus:bg-white focus:outline-none"
+          />
           <button
             type="button"
             className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100"
-            onClick={() => setQuantity((q) => clampQuantity(q + 1))}
+            onClick={() => applyQuantity(quantity + 1)}
           >
             +
           </button>

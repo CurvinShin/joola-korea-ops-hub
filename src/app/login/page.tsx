@@ -1,6 +1,4 @@
-import { signIn } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 export default function LoginPage({
   searchParams,
@@ -19,20 +17,7 @@ export default function LoginPage({
           </div>
         )}
 
-        <form action={signIn} className="mt-6 space-y-4">
-          <input type="hidden" name="next" value={searchParams.next || ""} />
-          <div>
-            <Label htmlFor="email">이메일</Label>
-            <Input id="email" name="email" type="email" required autoComplete="email" />
-          </div>
-          <div>
-            <Label htmlFor="password">비밀번호</Label>
-            <Input id="password" name="password" type="password" required autoComplete="current-password" />
-          </div>
-          <Button type="submit" className="w-full">
-            로그인
-          </Button>
-        </form>
+        <LoginForm nextPath={searchParams.next || ""} />
 
         <p className="mt-6 text-xs text-slate-400">
           계정은 JOOLA Korea 관리자가 Supabase 대시보드에서 직접 생성합니다 —

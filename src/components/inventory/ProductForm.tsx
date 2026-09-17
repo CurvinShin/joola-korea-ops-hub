@@ -37,6 +37,16 @@ export function ProductForm({
       </div>
 
       <div>
+        <Label htmlFor="subcategory">서브카테고리</Label>
+        <Input
+          id="subcategory"
+          name="subcategory"
+          placeholder="예: 패들 → Champion/Edge/Pro, 의류 → 남성/여성, 액세서리 → 그립/그립테이프 등"
+          defaultValue={defaultValues?.subcategory ?? ""}
+        />
+      </div>
+
+      <div>
         <Label htmlFor="fixed_dealer_price">딜러 고정 공급가 (선택, 부가세 제외)</Label>
         <Input
           id="fixed_dealer_price"

@@ -86,6 +86,7 @@ export interface InventoryStatusRow {
   sku: string;
   name: string;
   category: string | null;
+  subcategory: string | null;
   image_url: string | null;
   discontinued: boolean;
   current_stock: number;
@@ -106,6 +107,7 @@ export interface DealerCatalogRow {
   sku: string;
   name: string;
   category: string | null;
+  subcategory: string | null;
   image_url: string | null;
   unit_price: number | null;
   available_stock: number;

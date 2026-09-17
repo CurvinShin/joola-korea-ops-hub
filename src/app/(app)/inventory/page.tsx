@@ -2,26 +2,54 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createProduct, updateProduct, deleteProduct } from "@/lib/actions/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { ProductForm } from "@/components/inventory/ProductForm";
+import { InventoryBrowser } from "@/components/inventory/InventoryBrowser";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: { q?: string; new?: string; edit?: string };
+  searchParams: { q?: string; new?: string; edit?: string; category?: string; subcategory?: string };
 }) {
   const supabase = createClient();
   let query = supabase.from("inventory_status").select("*").order("name");
-  if (searchParams.q) {
-    query = query.or(`name.ilike.%${searchParams.q}%,sku.ilike.%${searchParams.q}%`);
+  if (searchParams.category) {
+    query = query.eq("category", searchParams.category);
+  }
+  if (searchParams.subcategory) {
+    query = query.eq("subcategory", searchParams.subcategory);
   }
   const { data: rows, error } = await query;
+
+  // 필터 드롭다운에 쓸 카테고리 전체 목록 — 지금 필터링된 결과와 무관하게 항상 전체
+  // 선택지가 보이도록 products 테이블에서 따로 조회한다.
+  const { data: categoryRows } = await supabase.from("products").select("category").not("category", "is", null);
+  const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.category as string))).sort();
+
+  // 카테고리 빠른 필터(원클릭 탭)용 카테고리별 개수
+  const categoryCounts: Record<string, number> = {};
+  for (const r of categoryRows ?? []) {
+    const cat = r.category as string | null;
+    if (cat) categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
+  }
+  const { count: totalProductCount } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true });
+
+  // 서브카테고리는 선택된 카테고리 안에서만 의미가 있으므로, 카테고리가 선택된
+  // 경우에만 그 안의 서브카테고리 목록을 조회한다.
+  let subcategories: string[] = [];
+  if (searchParams.category) {
+    const { data: subcategoryRows } = await supabase
+      .from("products")
+      .select("subcategory")
+      .eq("category", searchParams.category)
+      .not("subcategory", "is", null);
+    subcategories = Array.from(new Set((subcategoryRows ?? []).map((r) => r.subcategory as string))).sort();
+  }
 
   const editRow = searchParams.edit ? rows?.find((r) => r.product_id === searchParams.edit) : undefined;
 
@@ -87,12 +115,60 @@ export default async function InventoryPage({
         </div>
       )}
 
-      <form className="flex gap-3">
-        <Input name="q" placeholder="이름 또는 상품코드로 검색..." defaultValue={searchParams.q} className="max-w-xs" />
-        <Button type="submit" variant="secondary">
-          검색
-        </Button>
-      </form>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={{ pathname: "/inventory", query: searchParams.q ? { q: searchParams.q } : {} }}
+          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+            !searchParams.category
+              ? "bg-brand-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          전체 ({totalProductCount ?? 0})
+        </Link>
+        {categories.map((c) => (
+          <Link
+            key={c}
+            href={{
+              pathname: "/inventory",
+              query: searchParams.q ? { q: searchParams.q, category: c } : { category: c },
+            }}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              searchParams.category === c
+                ? "bg-brand-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {c} ({categoryCounts[c] ?? 0})
+          </Link>
+        ))}
+      </div>
+
+      {searchParams.category && subcategories.length > 0 && (
+        <form className="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="category" value={searchParams.category ?? ""} />
+          <select
+            name="subcategory"
+            defaultValue={searchParams.subcategory ?? ""}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          >
+            <option value="">전체 서브카테고리</option>
+            {subcategories.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <Button type="submit" variant="secondary">
+            적용
+          </Button>
+          {(searchParams.category || searchParams.subcategory) && (
+            <Link href="/inventory" className="text-xs text-slate-400 hover:underline">
+              필터 초기화
+            </Link>
+          )}
+        </form>
+      )}
 
       <Card>
         <CardHeader>
@@ -101,62 +177,9 @@ export default async function InventoryPage({
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
           {rows && rows.length > 0 ? (
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>사진</Th>
-                  <Th>상품코드</Th>
-                  <Th>제품</Th>
-                  <Th>카테고리</Th>
-                  <Th>가용 재고</Th>
-                  <Th>입고 예정</Th>
-                  <Th>상태</Th>
-                  <Th></Th>
-                </Tr>
-              </Thead>
-              <tbody>
-                {rows.map((r) => (
-                  <Tr key={r.product_id}>
-                    <Td>
-                      {r.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={r.image_url} alt={r.name} className="h-10 w-10 rounded object-cover" />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
-                          없음
-                        </div>
-                      )}
-                    </Td>
-                    <Td className="font-mono text-xs">{r.sku}</Td>
-                    <Td>{r.name}</Td>
-                    <Td>{r.category ?? "—"}</Td>
-                    <Td>{r.available_stock}</Td>
-                    <Td>{r.incoming_qty > 0 ? `${r.incoming_qty}개 (입고예정일 ${r.eta ?? "—"})` : "—"}</Td>
-                    <Td>
-                      {r.discontinued ? (
-                        <Badge tone="slate">단종</Badge>
-                      ) : r.current_stock < 0 ? (
-                        <Badge tone="red">백오더</Badge>
-                      ) : r.is_low_stock ? (
-                        <Badge tone="amber">재고 부족</Badge>
-                      ) : (
-                        <Badge tone="green">재고 있음</Badge>
-                      )}
-                    </Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-3">
-                        <Link href={`/inventory?edit=${r.product_id}`} className="text-brand-600 hover:underline">
-                          수정
-                        </Link>
-                        <form action={deleteProduct.bind(null, r.product_id)}>
-                          <button className="text-red-600 hover:underline">삭제</button>
-                        </form>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="p-4">
+              <InventoryBrowser rows={rows} deleteProduct={deleteProduct} />
+            </div>
           ) : (
             <p className="p-8 text-center text-sm text-slate-400">등록된 제품이 없습니다.</p>
           )}

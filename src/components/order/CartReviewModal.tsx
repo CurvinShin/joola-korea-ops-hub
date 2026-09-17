@@ -1,12 +1,52 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useCart, calcCartTotals } from "@/components/order/CartContext";
 import { placeDealerCartOrder } from "@/lib/actions/dealer-portal";
 import { Button } from "@/components/ui/Button";
 
 const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
+
+function CartLineQuantityInput({
+  quantity,
+  disabled,
+  onChange,
+}: {
+  quantity: number;
+  disabled?: boolean;
+  onChange: (next: number) => void;
+}) {
+  const [text, setText] = useState(String(quantity));
+
+  useEffect(() => {
+    setText(String(quantity));
+  }, [quantity]);
+
+  function commit(raw: string) {
+    const parsed = parseInt(raw, 10);
+    const next = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+    onChange(next);
+    setText(String(next));
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      aria-label="수량"
+      disabled={disabled}
+      value={text}
+      onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ""))}
+      onBlur={(e) => commit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className="w-10 rounded border border-transparent bg-white text-center text-sm focus:border-brand-300 focus:outline-none"
+    />
+  );
+}
 
 export function CartReviewModal() {
   const { items, discountRate, isOpen, close, updateQuantity, removeItem, clear } = useCart();
@@ -72,7 +112,11 @@ export function CartReviewModal() {
                   >
                     −
                   </button>
-                  <span className="w-8 text-center text-sm">{line.quantity}</span>
+                  <CartLineQuantityInput
+                    quantity={line.quantity}
+                    disabled={isPending}
+                    onChange={(next) => updateQuantity(line.productId, line.isDemo, next)}
+                  />
                   <button
                     type="button"
                     className="h-6 w-6 rounded text-slate-500 hover:bg-slate-100"
