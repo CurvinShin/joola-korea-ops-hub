@@ -118,6 +118,8 @@ export const ambassadorTypeLabel: Record<string, string> = {
   player: "선수",
   ambassador: "앰버서더",
   influencer: "인플루언서",
+  junior: "주니어",
+  creator: "크리에이터",
 };
 
 export const contractStatusLabel: Record<string, string> = {

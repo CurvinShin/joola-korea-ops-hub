@@ -23,6 +23,8 @@ export function AmbassadorForm({
             <option value="player">선수</option>
             <option value="ambassador">앰버서더</option>
             <option value="influencer">인플루언서</option>
+            <option value="junior">주니어</option>
+            <option value="creator">크리에이터</option>
           </Select>
         </div>
         <div>
@@ -56,6 +58,32 @@ export function AmbassadorForm({
         <div>
           <Label htmlFor="main_paddle">주력 패들</Label>
           <Input id="main_paddle" name="main_paddle" defaultValue={defaultValues?.main_paddle ?? ""} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="birth_date">생년월일</Label>
+          <Input id="birth_date" name="birth_date" type="date" defaultValue={defaultValues?.birth_date ?? ""} />
+        </div>
+        <div>
+          <Label htmlFor="gender">성별</Label>
+          <Select id="gender" name="gender" defaultValue={defaultValues?.gender ?? ""}>
+            <option value="">선택 안함</option>
+            <option value="남성">남성</option>
+            <option value="여성">여성</option>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="affiliation">소속 (클럽/팀/학교)</Label>
+          <Input id="affiliation" name="affiliation" defaultValue={defaultValues?.affiliation ?? ""} />
+        </div>
+        <div>
+          <Label htmlFor="shipping_address">배송지 주소</Label>
+          <Input id="shipping_address" name="shipping_address" defaultValue={defaultValues?.shipping_address ?? ""} />
         </div>
       </div>
 

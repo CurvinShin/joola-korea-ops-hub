@@ -49,7 +49,7 @@ export type KrRegion =
   | "ulsan"
   | "jeju";
 
-export type AmbassadorType = "player" | "ambassador" | "influencer";
+export type AmbassadorType = "player" | "ambassador" | "influencer" | "junior" | "creator";
 export type ContractStatus = "prospect" | "negotiating" | "active" | "expired" | "ended";
 
 export interface Profile {
@@ -315,6 +315,10 @@ export interface Ambassador {
   phone: string | null;
   main_paddle: string | null;
   dupr_rating: number | null;
+  birth_date: string | null;
+  gender: string | null;
+  affiliation: string | null;
+  shipping_address: string | null;
   created_at: string;
   updated_at: string;
 }

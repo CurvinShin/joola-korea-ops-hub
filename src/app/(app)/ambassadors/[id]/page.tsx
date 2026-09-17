@@ -69,6 +69,10 @@ export default async function AmbassadorDetailPage({ params }: { params: { id: s
               <InfoRow label="이메일주소" value={ambassador.email ?? "—"} />
               <InfoRow label="전화번호" value={ambassador.phone ?? "—"} />
               <InfoRow label="인스타그램" value={ambassador.social_media_handle ?? "—"} />
+              <InfoRow label="생년월일" value={ambassador.birth_date ?? "—"} />
+              <InfoRow label="성별" value={ambassador.gender ?? "—"} />
+              <InfoRow label="소속" value={ambassador.affiliation ?? "—"} />
+              <InfoRow label="배송지 주소" value={ambassador.shipping_address ?? "—"} />
               <InfoRow label="주력 패들" value={ambassador.main_paddle ?? "—"} />
               <InfoRow label="듀퍼 (DUPR)" value={ambassador.dupr_rating != null ? String(ambassador.dupr_rating) : "—"} />
               <InfoRow label="전달한 용품" value={ambassador.equipment_support ?? "—"} />
