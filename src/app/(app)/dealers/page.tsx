@@ -13,6 +13,9 @@ import { dealerStatusLabel, dealerClassificationLabel } from "@/lib/utils/labels
 
 export const dynamic = "force-dynamic";
 
+const currency = (n: number) =>
+  new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
+
 const statusTone: Record<DealerStatus, "green" | "amber" | "slate" | "red"> = {
   active: "green",
   pending: "amber",
@@ -79,6 +82,11 @@ export default async function DealersPage({
                   <Th>지역</Th>
                   <Th>할인율</Th>
                   <Th>계약 종료일</Th>
+                  <Th className="text-right">
+                    올해 구매액
+                    <span className="ml-1 font-normal text-slate-400">(견적서)</span>
+                  </Th>
+                  <Th className="text-right">이번달 구매액</Th>
                 </Tr>
               </Thead>
               <tbody>
@@ -98,6 +106,12 @@ export default async function DealersPage({
                     <Td>{d.region ?? "—"}</Td>
                     <Td>{d.discount_rate}%</Td>
                     <Td>{d.contract_end ?? "—"}</Td>
+                    <Td className="text-right">
+                      {d.ytd_quote_amount != null ? currency(Number(d.ytd_quote_amount)) : "—"}
+                    </Td>
+                    <Td className="text-right">
+                      {d.mtd_quote_amount != null ? currency(Number(d.mtd_quote_amount)) : "—"}
+                    </Td>
                   </Tr>
                 ))}
               </tbody>

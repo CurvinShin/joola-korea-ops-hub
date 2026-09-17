@@ -61,6 +61,7 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
               <CardTitle>연간 누적 구매액 대비 MOQ 목표</CardTitle>
             </CardHeader>
             <CardContent>
+              <p className="mb-2 text-xs text-slate-400">이 사이트(주문서)를 통해 들어온 주문만 집계한 값입니다.</p>
               <div className="flex items-baseline justify-between text-sm">
                 <span className="font-semibold text-slate-900">{currency(ytdTotal)}</span>
                 <span className="text-slate-400">
@@ -72,6 +73,35 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
                   <div className="h-full bg-brand-600" style={{ width: `${moqPct}%` }} />
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>실제 구매액 (견적서 기준)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-xs text-slate-400">
+                딥 폴더의 2026년 견적서를 기준으로 집계했습니다(견적서가 있으면 구매한 것으로 보고
+                합산). 이 사이트 주문과는 별도입니다.
+                {dealer.quote_amount_as_of && (
+                  <> 기준일: {dealer.quote_amount_as_of}</>
+                )}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-400">올해 누적</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {dealer.ytd_quote_amount != null ? currency(Number(dealer.ytd_quote_amount)) : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">이번달</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {dealer.mtd_quote_amount != null ? currency(Number(dealer.mtd_quote_amount)) : "—"}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

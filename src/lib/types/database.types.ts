@@ -57,6 +57,9 @@ export interface Dealer {
   kr_code: string | null;
   next_seq: number;
   last_seq_year: string | null;
+  ytd_quote_amount: number | null;
+  mtd_quote_amount: number | null;
+  quote_amount_as_of: string | null;
   created_at: string;
   updated_at: string;
 }
