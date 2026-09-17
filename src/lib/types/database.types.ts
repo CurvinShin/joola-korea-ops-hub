@@ -201,6 +201,7 @@ export interface DealerOrderAdminRow {
     address: string | null;
     ship_recipient: string | null;
     payment_terms: string | null;
+    contact_phone: string | null;
   } | null;
   dealer_order_items: {
     quantity: number;

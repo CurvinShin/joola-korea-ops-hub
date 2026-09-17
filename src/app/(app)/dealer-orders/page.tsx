@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { DealerOrderRowActions } from "@/components/dealer-orders/DealerOrderRowActions";
 import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
+import { ShippingListCopyButton } from "@/components/dealer-orders/ShippingListCopyButton";
 import { dealerOrderTypeLabel } from "@/lib/utils/labels";
+import { buildShippingListRows, shippingListRowsToTsv } from "@/lib/utils/shipping-list";
 import type { DealerOrderAdminRow } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +19,14 @@ export default async function DealerOrdersPage() {
   const { data: orders, error } = await supabase
     .from("dealer_orders")
     .select(
-      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
+      "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
     )
     .order("order_date", { ascending: false })
     .limit(100);
 
   const rows = (orders ?? []) as unknown as (DealerOrderAdminRow & { order_date: string })[];
+  const shippingRows = buildShippingListRows(rows);
+  const shippingTsv = shippingListRowsToTsv(shippingRows);
 
   return (
     <div className="space-y-6">
@@ -37,6 +41,7 @@ export default async function DealerOrdersPage() {
       <Card>
         <CardHeader>
           <CardTitle>주문 {rows.length}건</CardTitle>
+          <ShippingListCopyButton tsv={shippingTsv} rowCount={shippingRows.length} />
         </CardHeader>
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
