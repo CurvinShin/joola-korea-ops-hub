@@ -26,6 +26,28 @@ export type TaskCategory =
   | "general";
 export type ShippingStatus = "not_shipped" | "in_transit" | "arrived_port" | "cleared_customs" | "delivered";
 export type CustomsStatus = "not_started" | "in_progress" | "cleared" | "held";
+export type PartnershipStatus = "prospect" | "in_discussion" | "active" | "ended";
+// South Korea's 17 first-level administrative divisions (시/도), used to
+// place each facility on the region map. English keys map to Korean short
+// names in lib/utils/labels.ts (krRegionLabel).
+export type KrRegion =
+  | "seoul"
+  | "incheon"
+  | "gyeonggi"
+  | "gangwon"
+  | "chungbuk"
+  | "chungnam"
+  | "daejeon"
+  | "sejong"
+  | "jeonbuk"
+  | "jeonnam"
+  | "gwangju"
+  | "gyeongbuk"
+  | "daegu"
+  | "gyeongnam"
+  | "busan"
+  | "ulsan"
+  | "jeju";
 
 export interface Profile {
   id: string;
@@ -249,6 +271,28 @@ export interface DealerQuote {
   payment_terms: string | null;
   source_file: string;
   created_at: string;
+}
+
+export interface Facility {
+  id: string;
+  name: string;
+  location: string | null;
+  address: string | null;
+  region: KrRegion | null;
+  representative_name: string | null;
+  instagram_handle: string | null;
+  courts_count: number | null;
+  partnership_status: PartnershipStatus;
+  branding_installed: boolean;
+  demo_paddles_provided: boolean;
+  product_display: boolean;
+  sponsorship_details: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PurchaseOrder {

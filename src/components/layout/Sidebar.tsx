@@ -23,7 +23,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; phase
     label: "성장",
     items: [
       { href: "/events", label: "이벤트" },
-      { href: "/facilities", label: "시설", phase2: true },
+      { href: "/facilities", label: "시설" },
       { href: "/ambassadors", label: "앰버서더", phase2: true },
       { href: "/marketing", label: "마케팅", phase2: true },
     ],

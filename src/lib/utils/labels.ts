@@ -85,3 +85,31 @@ export const dealerOrderTypeLabel: Record<string, string> = {
   regular: "일반판매",
   demo: "데모구매",
 };
+
+export const partnershipStatusLabel: Record<string, string> = {
+  prospect: "잠재",
+  in_discussion: "협의중",
+  active: "활성",
+  ended: "종료",
+};
+
+// South Korea's 17 시/도, short colloquial form (e.g. "경기도" -> "경기").
+export const krRegionLabel: Record<string, string> = {
+  seoul: "서울",
+  incheon: "인천",
+  gyeonggi: "경기",
+  gangwon: "강원",
+  chungbuk: "충북",
+  chungnam: "충남",
+  daejeon: "대전",
+  sejong: "세종",
+  jeonbuk: "전북",
+  jeonnam: "전남",
+  gwangju: "광주",
+  gyeongbuk: "경북",
+  daegu: "대구",
+  gyeongnam: "경남",
+  busan: "부산",
+  ulsan: "울산",
+  jeju: "제주",
+};
