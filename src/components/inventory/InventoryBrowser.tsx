@@ -145,7 +145,7 @@ export function InventoryBrowser({
                 <Td>
                   {r.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.image_url} alt={r.name} className="h-10 w-10 rounded object-cover" />
+                    <img src={r.image_url} alt={r.name} loading="lazy" className="h-10 w-10 rounded object-cover" />
                   ) : (
                     <div className="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
                       없음

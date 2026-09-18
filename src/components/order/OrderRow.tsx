@@ -66,6 +66,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           <img
             src={product.image_url}
             alt={product.name}
+            loading="lazy"
             className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";

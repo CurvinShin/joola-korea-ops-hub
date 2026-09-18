@@ -108,7 +108,7 @@ export default async function InventoryPage({
                 >
                   {r.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.image_url} alt={r.name} className="h-11 w-11 rounded object-cover" />
+                    <img src={r.image_url} alt={r.name} loading="lazy" className="h-11 w-11 rounded object-cover" />
                   ) : (
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
                       없음
