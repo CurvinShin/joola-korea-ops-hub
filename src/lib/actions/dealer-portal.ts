@@ -61,7 +61,7 @@ export async function placeDealerCartOrder(
   const productIds = [...new Set(items.map((i) => i.productId))];
   const { data: products, error: productsError } = await supabase
     .from("dealer_catalog")
-    .select("product_id, unit_price, product_type, fixed_dealer_price, category")
+    .select("product_id, name, unit_price, product_type, fixed_dealer_price, category, demo_purchase_allowed")
     .in("product_id", productIds);
   if (productsError || !products) {
     return { ok: false, message: "상품 정보를 불러오지 못했습니다." };
@@ -77,6 +77,16 @@ export async function placeDealerCartOrder(
     const product = byId.get(it.productId);
     if (!product) {
       return { ok: false, message: "상품 정보를 찾을 수 없는 항목이 있습니다. 새로고침 후 다시 시도해주세요." };
+    }
+    // Authoritative check — never trust the client's isDemo flag for a
+    // product that has demo purchases disabled (e.g. a paddle with its own
+    // dedicated "(Demo)" SKU). The UI already hides the checkbox for these,
+    // but a request could still be crafted to set isDemo:true directly.
+    if (it.isDemo && !product.demo_purchase_allowed) {
+      return {
+        ok: false,
+        message: `"${product.name}"은(는) 데모구매가 불가한 상품입니다. 새로고침 후 다시 시도해주세요.`,
+      };
     }
     const unitPrice = calcDealerUnitPrice({
       mapPrice: Number(product.unit_price ?? 0),

@@ -16,6 +16,7 @@ const productSchema = z.object({
   unit_cost: z.coerce.number().min(0).optional(),
   unit_price: z.coerce.number().min(0).optional(),
   discontinued: z.coerce.boolean().optional(),
+  demo_purchase_allowed: z.coerce.boolean().optional(),
   current_stock: z.coerce.number().min(0).default(0),
   reserved_stock: z.coerce.number().min(0).default(0),
   incoming_qty: z.coerce.number().min(0).default(0),
@@ -27,6 +28,7 @@ function parseProductForm(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   // Checkbox inputs are absent from FormData when unchecked.
   raw.discontinued = formData.has("discontinued") ? "true" : "false";
+  raw.demo_purchase_allowed = formData.has("demo_purchase_allowed") ? "true" : "false";
   // An empty optional number field arrives as "" — treat it as "not set"
   // rather than letting z.coerce.number() turn it into 0.
   if (raw.fixed_dealer_price === "") delete raw.fixed_dealer_price;
@@ -54,6 +56,7 @@ export async function createProduct(formData: FormData) {
       unit_cost: data.unit_cost ?? null,
       unit_price: data.unit_price ?? null,
       discontinued: data.discontinued ?? false,
+      demo_purchase_allowed: data.demo_purchase_allowed ?? true,
     })
     .select("id")
     .single();
@@ -90,6 +93,7 @@ export async function updateProduct(id: string, formData: FormData) {
       unit_cost: data.unit_cost ?? null,
       unit_price: data.unit_price ?? null,
       discontinued: data.discontinued ?? false,
+      demo_purchase_allowed: data.demo_purchase_allowed ?? true,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);

@@ -15,13 +15,14 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
   const [quantityText, setQuantityText] = useState("1");
   const [isDemo, setIsDemo] = useState(false);
   const [added, setAdded] = useState(false);
+  const demoAllowed = product.demo_purchase_allowed;
 
   const mapPrice = Number(product.unit_price ?? 0);
   const unitPrice = calcDealerUnitPrice({
     mapPrice,
     productType: product.product_type,
     discountRatePercent: discountRate,
-    isDemo,
+    isDemo: demoAllowed && isDemo,
     fixedDealerPrice: product.fixed_dealer_price,
   });
   const subtotal = unitPrice * quantity;
@@ -50,7 +51,7 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
   }
 
   function handleAddToCart() {
-    addItem(product, quantity, isDemo);
+    addItem(product, quantity, demoAllowed && isDemo);
     setAdded(true);
     applyQuantity(1);
     setIsDemo(false);
@@ -85,10 +86,16 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
               <>가용 재고 {product.available_stock}개</>
             )}
           </p>
-          <label className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-            <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
-            데모구매 (소비자가 65% 할인)
-          </label>
+          {demoAllowed ? (
+            <label className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+              <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
+              데모구매 (소비자가 65% 할인)
+            </label>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400">
+              이 상품은 데모구매 불가 (별도 데모 전용 SKU 이용)
+            </p>
+          )}
         </div>
       </div>
 

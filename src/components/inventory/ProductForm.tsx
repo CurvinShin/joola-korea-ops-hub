@@ -104,6 +104,19 @@ export function ProductForm({
       </div>
 
       <label className="flex items-center gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          name="demo_purchase_allowed"
+          defaultChecked={defaultValues?.demo_purchase_allowed ?? true}
+        />
+        데모구매 허용
+      </label>
+      <p className="-mt-2 text-xs text-slate-400">
+        JOOLA에서 별도의 데모 전용 SKU를 내놓은 패들(정품·데모 SKU 둘 다)은 체크 해제 — 딜러 주문 화면에서 데모구매
+        체크박스가 사라지고, 정품은 정상가로만 주문 가능해집니다.
+      </p>
+
+      <label className="flex items-center gap-2 text-sm text-slate-700">
         <input type="checkbox" name="discontinued" defaultChecked={defaultValues?.discontinued} />
         단종
       </label>

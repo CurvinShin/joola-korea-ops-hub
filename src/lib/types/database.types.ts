@@ -104,6 +104,13 @@ export interface Product {
   // for regular orders (e.g. team socks sold at an agreed flat price).
   // Demo purchases ignore this and always use the 65%-off-MSRP formula.
   fixed_dealer_price: number | null;
+  // Some paddles ship with a separate dedicated "demo" SKU from JOOLA
+  // instead of relying on the app's own demo-purchase checkbox (e.g. a
+  // regular retail SKU + a "(Demo)" SKU at the same MAP price). For those,
+  // set this to false on BOTH SKUs so a dealer can't double up: check the
+  // demo box on the retail SKU, or check it again on the SKU that's
+  // already priced as a demo. Defaults to true for every other product.
+  demo_purchase_allowed: boolean;
   discontinued: boolean;
   created_at: string;
   updated_at: string;
@@ -126,6 +133,7 @@ export interface InventoryStatusRow {
   is_low_stock: boolean;
   product_type: ProductType;
   fixed_dealer_price: number | null;
+  demo_purchase_allowed: boolean;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is
@@ -141,6 +149,7 @@ export interface DealerCatalogRow {
   available_stock: number;
   product_type: ProductType;
   fixed_dealer_price: number | null;
+  demo_purchase_allowed: boolean;
 }
 
 export interface DealerOrderItem {
