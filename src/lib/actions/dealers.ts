@@ -19,6 +19,9 @@ const dealerSchema = z.object({
   moq_target: z.coerce.number().min(0).default(0),
   outstanding_issues: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+  segment_category: z.string().optional().or(z.literal("")),
+  segment_subcategory: z.string().optional().or(z.literal("")),
+  segment_detail: z.string().optional().or(z.literal("")),
 });
 
 function parseDealerForm(formData: FormData) {
@@ -39,6 +42,9 @@ function parseDealerForm(formData: FormData) {
     contract_end: data.contract_end || null,
     outstanding_issues: data.outstanding_issues || null,
     notes: data.notes || null,
+    segment_category: data.segment_category || null,
+    segment_subcategory: data.segment_subcategory || null,
+    segment_detail: data.segment_detail || null,
   };
 }
 

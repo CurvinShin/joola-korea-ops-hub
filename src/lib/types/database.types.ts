@@ -85,6 +85,11 @@ export interface Dealer {
   ytd_quote_amount: number | null;
   mtd_quote_amount: number | null;
   quote_amount_as_of: string | null;
+  // JOOLA HQ APAC 딜러 세그멘테이션 (Category/Sub Category/Sub Detail).
+  // 화면상 "구분" 표시는 이 세 필드 기준 — see lib/utils/dealerSegments.ts.
+  segment_category: string | null;
+  segment_subcategory: string | null;
+  segment_detail: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -134,6 +139,11 @@ export interface InventoryStatusRow {
   product_type: ProductType;
   fixed_dealer_price: number | null;
   demo_purchase_allowed: boolean;
+  // Set to a date to pin this product in the "신제품" section at the top of
+  // /inventory. Only products whose new_arrival_batch equals the MOST
+  // RECENT such date across all products are shown — so the next batch of
+  // new products automatically retires the previous one, no manual cleanup.
+  new_arrival_batch: string | null;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is

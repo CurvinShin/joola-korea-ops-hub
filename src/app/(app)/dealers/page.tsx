@@ -9,7 +9,8 @@ import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { DealerForm } from "@/components/dealers/DealerForm";
 import type { DealerStatus } from "@/lib/types/database.types";
-import { dealerStatusLabel, dealerClassificationLabel } from "@/lib/utils/labels";
+import { dealerStatusLabel } from "@/lib/utils/labels";
+import { formatDealerSegment } from "@/lib/utils/dealerSegments";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +106,7 @@ export default async function DealersPage({
               <Thead>
                 <Tr>
                   <Th>이름</Th>
-                  <Th>분류</Th>
+                  <Th>세그먼트</Th>
                   <Th>상태</Th>
                   <Th>지역</Th>
                   <Th>할인율</Th>
@@ -125,7 +126,9 @@ export default async function DealersPage({
                         {d.name}
                       </Link>
                     </Td>
-                    <Td>{dealerClassificationLabel[d.classification] ?? d.classification}</Td>
+                    <Td className="text-xs">
+                      {formatDealerSegment(d.segment_category, d.segment_subcategory, d.segment_detail)}
+                    </Td>
                     <Td>
                       <Badge tone={statusTone[d.status as DealerStatus]}>
                         {dealerStatusLabel[d.status] ?? d.status}

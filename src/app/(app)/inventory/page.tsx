@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createProduct, updateProduct, deleteProduct } from "@/lib/actions/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProductForm } from "@/components/inventory/ProductForm";
@@ -21,6 +22,15 @@ export default async function InventoryPage({
   const { data: rows, error } = await supabase.from("inventory_status").select("*").order("name");
 
   const editRow = searchParams.edit ? rows?.find((r) => r.product_id === searchParams.edit) : undefined;
+
+  // "신제품" 영역 — new_arrival_batch가 채워진 상품 중 가장 최근 날짜와
+  // 같은 상품만 보여준다. 다음 배치가 더 최근 날짜로 등록되면 이전 배치는
+  // 조건을 만족하지 못해 자동으로 빠진다 (수동 정리 불필요).
+  const latestBatch = (rows ?? []).reduce<string | null>((latest, r) => {
+    if (!r.new_arrival_batch) return latest;
+    return !latest || r.new_arrival_batch > latest ? r.new_arrival_batch : latest;
+  }, null);
+  const newArrivals = latestBatch ? (rows ?? []).filter((r) => r.new_arrival_batch === latestBatch) : [];
 
   const { count: gapCount } = await supabase
     .from("catalog_gaps")
@@ -73,6 +83,49 @@ export default async function InventoryPage({
           <span>카탈로그 미매칭 재고 {gapCount}건 — 가격/유형 정보가 없어 제품으로 등록하지 못한 품목이 있습니다</span>
           <span className="font-medium">보기 →</span>
         </Link>
+      )}
+
+      {newArrivals.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Badge tone="blue">신제품</Badge>
+              <span>
+                {new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" }).format(
+                  new Date(latestBatch as string)
+                )}{" "}
+                등록 ({newArrivals.length}종)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {newArrivals.map((r) => (
+                <Link
+                  key={r.product_id}
+                  href={`/inventory?edit=${r.product_id}`}
+                  className="flex items-center gap-3 rounded-lg border border-blue-100 bg-white px-3 py-2.5 hover:border-blue-300"
+                >
+                  {r.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.image_url} alt={r.name} className="h-11 w-11 rounded object-cover" />
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
+                      없음
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{r.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {r.sku}
+                      {r.category && <span> · {r.category}</span>}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {!!backorderCount && (

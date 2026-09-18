@@ -103,6 +103,20 @@ export function ProductForm({
         </div>
       </div>
 
+      <div>
+        <Label htmlFor="new_arrival_batch">신제품 표시일 (선택)</Label>
+        <Input
+          id="new_arrival_batch"
+          name="new_arrival_batch"
+          type="date"
+          defaultValue={defaultValues?.new_arrival_batch ?? ""}
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          날짜를 넣으면 재고 페이지 맨 위 &ldquo;신제품&rdquo; 영역에 표시됩니다. 다음 신제품이 더 최근 날짜로
+          등록되면 자동으로 내려가니, 표시를 끄려면 비워두세요.
+        </p>
+      </div>
+
       <label className="flex items-center gap-2 text-sm text-slate-700">
         <input
           type="checkbox"

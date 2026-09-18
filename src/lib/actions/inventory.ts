@@ -17,6 +17,7 @@ const productSchema = z.object({
   unit_price: z.coerce.number().min(0).optional(),
   discontinued: z.coerce.boolean().optional(),
   demo_purchase_allowed: z.coerce.boolean().optional(),
+  new_arrival_batch: z.string().optional().or(z.literal("")),
   current_stock: z.coerce.number().min(0).default(0),
   reserved_stock: z.coerce.number().min(0).default(0),
   incoming_qty: z.coerce.number().min(0).default(0),
@@ -57,6 +58,7 @@ export async function createProduct(formData: FormData) {
       unit_price: data.unit_price ?? null,
       discontinued: data.discontinued ?? false,
       demo_purchase_allowed: data.demo_purchase_allowed ?? true,
+      new_arrival_batch: data.new_arrival_batch || null,
     })
     .select("id")
     .single();
@@ -94,6 +96,7 @@ export async function updateProduct(id: string, formData: FormData) {
       unit_price: data.unit_price ?? null,
       discontinued: data.discontinued ?? false,
       demo_purchase_allowed: data.demo_purchase_allowed ?? true,
+      new_arrival_batch: data.new_arrival_batch || null,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);

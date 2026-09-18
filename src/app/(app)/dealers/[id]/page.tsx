@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { DealerForm } from "@/components/dealers/DealerForm";
 import { format, startOfYear } from "date-fns";
 import { orderStatusLabel } from "@/lib/utils/labels";
+import { formatDealerSegment } from "@/lib/utils/dealerSegments";
 import type { DealerQuote } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,9 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
             ← 전체 딜러
           </Link>
           <h1 className="text-xl font-semibold text-slate-900">{dealer.name}</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {formatDealerSegment(dealer.segment_category, dealer.segment_subcategory, dealer.segment_detail)}
+          </p>
         </div>
         <form action={deleteWithId}>
           <Button type="submit" variant="danger" size="sm">
