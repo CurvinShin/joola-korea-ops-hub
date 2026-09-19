@@ -10,6 +10,7 @@ import { DealerForm } from "@/components/dealers/DealerForm";
 import { format, startOfYear } from "date-fns";
 import { orderStatusLabel } from "@/lib/utils/labels";
 import { formatDealerSegment } from "@/lib/utils/dealerSegments";
+import { DealerQuoteNumberCard } from "@/components/dealers/DealerQuoteNumberCard";
 import type { DealerQuote } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -118,6 +119,15 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
               </div>
             </CardContent>
           </Card>
+
+          {dealer.kr_code && (
+            <DealerQuoteNumberCard
+              dealerId={dealer.id}
+              krCode={dealer.kr_code}
+              nextSeq={dealer.next_seq}
+              lastSeqYear={dealer.last_seq_year}
+            />
+          )}
 
           {dealer.kr_code && (
             <Card>
