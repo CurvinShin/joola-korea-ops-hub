@@ -161,7 +161,7 @@ export async function deleteDealerOrder(orderId: string) {
 
   const { data: order, error: orderErr } = await supabase
     .from("dealer_orders")
-    .select("id, status")
+    .select("id, status, order_number, dealer_id")
     .eq("id", orderId)
     .single();
   if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
@@ -171,6 +171,19 @@ export async function deleteDealerOrder(orderId: string) {
 
   const { error } = await supabase.from("dealer_orders").delete().eq("id", orderId);
   if (error) throw new Error(error.message);
+
+  // 방금 지운 주문이 그 딜러에게 가장 최근에 발급된 번호였다면(=그 뒤로
+  // 다른 번호가 아직 안 나갔다면), 다음 발급 때 같은 번호를 다시 쓸 수
+  // 있게 되돌린다 — 실수로 만든 주문을 지웠다고 번호가 건너뛰지 않도록.
+  if (order.order_number && order.dealer_id) {
+    const { error: releaseError } = await supabase.rpc("release_dealer_order_number_if_last", {
+      p_dealer_id: order.dealer_id,
+      p_order_number: order.order_number,
+    });
+    if (releaseError) {
+      console.error("release_dealer_order_number_if_last failed", releaseError);
+    }
+  }
 
   revalidatePath("/dealer-orders");
 }
