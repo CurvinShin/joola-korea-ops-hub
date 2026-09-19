@@ -56,8 +56,8 @@ export default async function OrderPage() {
           주문하세요.
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          재고가 부족해도 주문은 접수됩니다(백오더). 배송비는 패들 10개당 1박스(5,000원)만 자동 계산되고, 그 외
-          품목의 배송비는 담당자가 확인 후 안내해드려요 — 최종 견적서를 받은 뒤에 입금해주세요.
+          재고가 부족해도 주문은 접수됩니다(백오더). 화면에 표시되는 금액은 송금하실 금액이 아닙니다 —
+          이메일로 받으실 견적서에는 국내배송비가 추가되니, 이메일로 발송되는 배송비를 확인하신 후 입금해주세요.
         </p>
       </div>
 
@@ -102,9 +102,6 @@ export default async function OrderPage() {
                     <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>
                     <span className="text-sm font-medium text-slate-900">
                       {currency(Number(o.total_amount))}
-                      {o.manual_shipping_fee == null && (
-                        <span className="ml-1 text-xs font-normal text-amber-600">(배송비 별도 확정 전)</span>
-                      )}
                     </span>
                   </div>
                 </div>

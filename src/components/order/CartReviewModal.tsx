@@ -55,10 +55,7 @@ export function CartReviewModal() {
 
   if (!isOpen) return null;
 
-  const { lines, subtotal, autoShippingBoxes, autoShippingFee, vat, estimatedTotal } = calcCartTotals(
-    items,
-    discountRate
-  );
+  const { lines, subtotal, vat, estimatedTotal } = calcCartTotals(items, discountRate);
 
   function handleSubmit() {
     setResult(null);
@@ -145,12 +142,6 @@ export function CartReviewModal() {
             <span>공급가액 합계</span>
             <span>{currency(subtotal)}</span>
           </div>
-          {autoShippingBoxes > 0 && (
-            <div className="flex justify-between text-slate-500">
-              <span>배송비 (패들 {autoShippingBoxes}박스 × 5,000원)</span>
-              <span>{currency(autoShippingFee)}</span>
-            </div>
-          )}
           <div className="flex justify-between text-slate-500">
             <span>부가세 (10%)</span>
             <span>{currency(vat)}</span>
@@ -161,8 +152,8 @@ export function CartReviewModal() {
           </div>
 
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-            패들 외 품목의 배송비는 담당자 확인 후 별도로 더해질 수 있습니다. 재고 상황에 따라 수량이 조정될 수
-            있으니, 이 화면 금액으로 바로 입금하지 마시고 담당자가 안내하는 최종 견적서를 확인한 뒤 입금해주세요.
+            재고 상황에 따라 수량이 조정될 수 있습니다. 이 화면의 금액은 송금하실 금액이 아니며, 이메일로
+            받으실 견적서에는 국내배송비가 추가됩니다. 이메일로 발송되는 배송비를 확인하신 후 송금 바랍니다.
           </p>
 
           {result && (

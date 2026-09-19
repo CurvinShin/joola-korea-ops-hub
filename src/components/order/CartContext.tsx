@@ -130,9 +130,13 @@ export function calcCartTotals(items: CartItem[], discountRate: number) {
     if (item.category === "패들") paddleQty += item.quantity;
     return { ...item, unitPrice, lineTotal };
   });
+  // 배송비(패들 박스 계산 등)는 화면에 더 이상 보여주지 않는다 — 딜러에게는
+  // "이 화면 금액은 송금액이 아니고, 실제 배송비 포함 금액은 이메일 견적서로
+  // 안내한다"고 명시했으므로, 예상 합계에도 배송비를 섞지 않는다. 계산 자체는
+  // (참고용으로) 그대로 반환하되, 부가세/합계 산정에서는 뺐다.
   const autoShippingBoxes = Math.ceil(paddleQty / SHIPPING_BOX_SIZE);
   const autoShippingFee = autoShippingBoxes * SHIPPING_FEE_PER_BOX;
-  const taxableBase = subtotal + autoShippingFee;
+  const taxableBase = subtotal;
   const vat = Math.round(taxableBase * VAT_RATE);
   const estimatedTotal = taxableBase + vat;
   return { lines, subtotal, paddleQty, autoShippingBoxes, autoShippingFee, vat, estimatedTotal };
