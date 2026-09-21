@@ -21,10 +21,15 @@ export interface CartItem {
 interface CartContextValue {
   items: CartItem[];
   discountRate: number;
+  // 기존 주문을 고치는 중이면 그 주문 id/표시용 라벨이 들어간다 (예:
+  // "2026-09-10 · KR05-2630"). 새로 담는 중이면 둘 다 null.
+  editingOrderId: string | null;
+  editingOrderLabel: string | null;
   addItem: (product: DealerCatalogRow, quantity: number, isDemo: boolean) => void;
   updateQuantity: (productId: string, isDemo: boolean, quantity: number) => void;
   removeItem: (productId: string, isDemo: boolean) => void;
   clear: () => void;
+  startEditingOrder: (orderId: string, label: string, items: CartItem[]) => void;
   isOpen: boolean;
   open: () => void;
   close: () => void;
@@ -43,6 +48,8 @@ function lineKey(productId: string, isDemo: boolean) {
 export function CartProvider({ discountRate, children }: { discountRate: number; children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editingOrderLabel, setEditingOrderLabel] = useState<string | null>(null);
 
   const addItem = useCallback((product: DealerCatalogRow, quantity: number, isDemo: boolean) => {
     setItems((prev) => {
@@ -84,21 +91,47 @@ export function CartProvider({ discountRate, children }: { discountRate: number;
     setItems((prev) => prev.filter((i) => lineKey(i.productId, i.isDemo) !== lineKey(productId, isDemo)));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    setEditingOrderId(null);
+    setEditingOrderLabel(null);
+  }, []);
+
+  // 이미 넣어둔 주문(draft 상태)을 고치기 시작할 때 — 그 주문의 품목으로
+  // 장바구니를 통째로 채우고 "수정 모드"로 표시한다.
+  const startEditingOrder = useCallback((orderId: string, label: string, orderItems: CartItem[]) => {
+    setItems(orderItems);
+    setEditingOrderId(orderId);
+    setEditingOrderLabel(label);
+  }, []);
 
   const value = useMemo<CartContextValue>(
     () => ({
       items,
       discountRate,
+      editingOrderId,
+      editingOrderLabel,
       addItem,
       updateQuantity,
       removeItem,
       clear,
+      startEditingOrder,
       isOpen,
       open: () => setIsOpen(true),
       close: () => setIsOpen(false),
     }),
-    [items, discountRate, addItem, updateQuantity, removeItem, clear, isOpen]
+    [
+      items,
+      discountRate,
+      editingOrderId,
+      editingOrderLabel,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clear,
+      startEditingOrder,
+      isOpen,
+    ]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

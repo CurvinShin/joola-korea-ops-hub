@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useCart, calcCartTotals } from "@/components/order/CartContext";
-import { placeDealerCartOrder } from "@/lib/actions/dealer-portal";
+import { placeDealerCartOrder, updateDealerCartOrder } from "@/lib/actions/dealer-portal";
 import { Button } from "@/components/ui/Button";
 
 const currency = (n: number) =>
@@ -49,7 +50,9 @@ function CartLineQuantityInput({
 }
 
 export function CartReviewModal() {
-  const { items, discountRate, isOpen, close, updateQuantity, removeItem, clear } = useCart();
+  const router = useRouter();
+  const { items, discountRate, isOpen, close, updateQuantity, removeItem, clear, editingOrderId, editingOrderLabel } =
+    useCart();
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -58,23 +61,48 @@ export function CartReviewModal() {
   const { lines, subtotal, vat, estimatedTotal } = calcCartTotals(items, discountRate);
 
   function handleSubmit() {
+    const wasEditingOrderId = editingOrderId;
     setResult(null);
     startTransition(async () => {
-      const res = await placeDealerCartOrder(
-        items.map((i) => ({ productId: i.productId, quantity: i.quantity, isDemo: i.isDemo }))
-      );
+      const payload = items.map((i) => ({ productId: i.productId, quantity: i.quantity, isDemo: i.isDemo }));
+      const res = wasEditingOrderId
+        ? await updateDealerCartOrder(wasEditingOrderId, payload)
+        : await placeDealerCartOrder(payload);
       setResult({ ok: res.ok, text: res.message });
-      if (res.ok) clear();
+      if (res.ok) {
+        clear();
+        if (wasEditingOrderId) router.replace("/order");
+      }
     });
+  }
+
+  // 수정 중이던 주문을 취소(담기 취소)하면 장바구니를 비우고 URL의
+  // ?edit=<id>도 지운다 — 그대로 두면 새로고침할 때 같은 주문이 다시
+  // 장바구니에 채워지고 모달이 또 열려버린다. 새로 담는 중일 때는(수정
+  // 모드가 아닐 때는) 담아둔 상품을 유지한 채 그냥 모달만 닫는다 — 원래
+  // 동작 그대로.
+  function handleClose() {
+    if (editingOrderId) {
+      clear();
+      router.replace("/order");
+    }
+    close();
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-10">
       <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">장바구니 · 주문 확인</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              {editingOrderId ? "주문 수정" : "장바구니 · 주문 확인"}
+            </h2>
+            {editingOrderId && editingOrderLabel && (
+              <p className="mt-0.5 text-xs text-slate-400">{editingOrderLabel}</p>
+            )}
+          </div>
           <button
-            onClick={close}
+            onClick={handleClose}
             className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             aria-label="닫기"
           >
@@ -161,12 +189,12 @@ export function CartReviewModal() {
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={close}>
+            <Button variant="secondary" onClick={handleClose}>
               {result?.ok ? "닫기" : "취소"}
             </Button>
             {!result?.ok && (
               <Button onClick={handleSubmit} disabled={isPending || lines.length === 0}>
-                {isPending ? "처리 중..." : "주문 확정"}
+                {isPending ? "처리 중..." : editingOrderId ? "수정 저장" : "주문 확정"}
               </Button>
             )}
           </div>
