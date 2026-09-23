@@ -9,7 +9,7 @@ import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
 import { ShippingListCopyButton } from "@/components/dealer-orders/ShippingListCopyButton";
 import { dealerOrderTypeLabel } from "@/lib/utils/labels";
 import { shippingListRowsToTsv } from "@/lib/utils/shipping-list";
-import type { DealerOrderAdminRow } from "@/lib/types/database.types";
+import type { DealerOrderAdminRow, DealerCatalogRow } from "@/lib/types/database.types";
 
 const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
@@ -19,9 +19,11 @@ const currency = (n: number) =>
 export function DealerOrdersTable({
   rows,
   shippingRowsByOrder,
+  catalog,
 }: {
   rows: (DealerOrderAdminRow & { order_date: string })[];
   shippingRowsByOrder: Record<string, string[][]>;
+  catalog: DealerCatalogRow[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -108,7 +110,7 @@ export function DealerOrdersTable({
                 <Td className="whitespace-nowrap">{o.order_date}</Td>
                 <Td className="font-medium text-slate-900">{o.dealers?.name ?? "—"}</Td>
                 <Td>
-                  <OrderDetailModal order={o} />
+                  <OrderDetailModal order={o} catalog={catalog} />
                 </Td>
                 <Td>
                   <Badge tone={o.order_type === "demo" ? "purple" : "slate"}>

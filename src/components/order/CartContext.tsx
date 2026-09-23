@@ -144,7 +144,9 @@ export function useCart() {
 }
 
 const SHIPPING_BOX_SIZE = 10; // 패들 10개당 배송 1박스
-const SHIPPING_FEE_PER_BOX = 5000;
+// 부가세 포함 5,500원/박스 (2026-09-21 변경, 이전 5,000원). 화면에는 표시하지
+// 않지만 dealer-portal.ts와 값을 맞춰둔다.
+const SHIPPING_FEE_PER_BOX = 5500;
 const VAT_RATE = 0.1;
 
 export function calcCartTotals(items: CartItem[], discountRate: number) {

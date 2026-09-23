@@ -248,6 +248,7 @@ export interface DealerOrderAdminRow {
     contact_phone: string | null;
   } | null;
   dealer_order_items: {
+    product_id: string;
     quantity: number;
     unit_price: number;
     is_demo: boolean;

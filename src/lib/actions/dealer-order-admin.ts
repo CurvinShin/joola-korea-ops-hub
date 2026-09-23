@@ -2,11 +2,82 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { priceCartItemsForDealer, validateCartInput } from "@/lib/utils/dealer-cart-pricing";
 
 // Admin-only actions for reviewing orders dealers place through /order.
 // The actual 견적서/발주서 document is created by the admin in 경리나라
 // (an external accounting tool) — this app just tracks status and whether
 // that hand-off has happened yet (synced_to_accounting).
+
+/**
+ * 관리자 화면(딜러 주문 상세)에서 주문 품목 자체를 고친다 — 품목 추가/삭제,
+ * 수량 조정 모두 가능. 입금 확인 전(status="draft") 주문에만 허용한다:
+ * 그 이후는 이미 재고가 차감된 상태라 품목이 바뀌면 재고까지 같이
+ * 보정해야 하는데, 아직 그 로직이 없어서 안전하게 draft로만 제한해둔다
+ * (입금 확인 후 내용이 잘못됐으면 거절→재주문, 혹은 DB에서 직접 처리).
+ * dealer_id는 그 주문에 이미 연결된 딜러를 그대로 쓴다 — 로그인 사용자
+ * 기준으로 딜러를 찾는 priceDealerCartItems와 달리, 관리자는 자기 자신의
+ * dealer_id가 없으므로 주문의 dealer_id를 그대로 넘겨 가격을 다시 매긴다.
+ */
+export async function updateDealerOrderItemsAdmin(
+  orderId: string,
+  items: { productId: string; quantity: number; isDemo: boolean }[]
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const inputError = validateCartInput(items);
+  if (inputError) return { ok: false, message: inputError };
+
+  const supabase = createClient();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("dealer_orders")
+    .select("id, dealer_id, status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (existingError || !existing) {
+    return { ok: false, message: "주문을 찾을 수 없습니다." };
+  }
+  if (existing.status !== "draft") {
+    return { ok: false, message: "입금 확인 전(임시) 주문만 수정할 수 있습니다." };
+  }
+
+  const priced = await priceCartItemsForDealer(supabase, existing.dealer_id, items);
+  if (!priced.ok) return priced;
+
+  const { error: deleteError } = await supabase.from("dealer_order_items").delete().eq("order_id", orderId);
+  if (deleteError) {
+    return { ok: false, message: `기존 주문 상품 삭제 실패: ${deleteError.message}` };
+  }
+
+  const { error: itemsError } = await supabase.from("dealer_order_items").insert(
+    priced.rows.map((r) => ({
+      order_id: orderId,
+      product_id: r.product_id,
+      quantity: r.quantity,
+      unit_price: r.unit_price,
+      is_demo: r.is_demo,
+    }))
+  );
+  if (itemsError) {
+    return { ok: false, message: `주문 상품 등록에 실패했습니다: ${itemsError.message}` };
+  }
+
+  const { error: updateError } = await supabase
+    .from("dealer_orders")
+    .update({
+      order_type: priced.allDemo ? "demo" : "regular",
+      total_amount: priced.subtotal,
+      auto_shipping_boxes: priced.autoShippingBoxes,
+      auto_shipping_fee: priced.autoShippingFee,
+    })
+    .eq("id", orderId);
+  if (updateError) {
+    return { ok: false, message: `주문 수정에 실패했습니다: ${updateError.message}` };
+  }
+
+  revalidatePath("/dealer-orders");
+  revalidatePath("/order");
+  return { ok: true, message: "주문이 수정되었습니다." };
+}
 
 export async function setDealerOrderStatus(id: string, status: string) {
   const supabase = createClient();
