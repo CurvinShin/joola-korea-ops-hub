@@ -296,6 +296,25 @@ export interface DealerQuote {
   created_at: string;
 }
 
+export type SalesChannel = "dealer" | "ecommerce" | "event";
+
+// Row shape of `sales_transactions` — currently only used for the monthly
+// 스마트스토어 정산(channel="ecommerce") entries on the /영업 page. Dealer
+// revenue on that page comes straight from `dealer_quotes` instead (already
+// has the real per-quote amounts), so this row shape stays minimal.
+export interface SalesTransaction {
+  id: string;
+  channel: SalesChannel;
+  sale_date: string;
+  product_id: string | null;
+  dealer_id: string | null;
+  event_id: string | null;
+  amount: number;
+  quantity: number | null;
+  source: string | null;
+  created_at: string;
+}
+
 export interface Facility {
   id: string;
   name: string;
