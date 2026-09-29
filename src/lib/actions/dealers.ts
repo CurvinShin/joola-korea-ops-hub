@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const dealerSchema = z.object({
   name: z.string().min(1, "딜러명을 입력해주세요"),
+  kr_code: z.string().optional().or(z.literal("")),
   classification: z.enum(["flagship", "standard", "online_only", "distributor"]),
   status: z.enum(["active", "pending", "inactive", "terminated"]),
   contact_name: z.string().optional().or(z.literal("")),
@@ -32,8 +33,12 @@ function parseDealerForm(formData: FormData) {
   }
   // Convert empty-string optional fields to null so Postgres date/text columns stay clean.
   const data = parsed.data;
+  // 견적서 번호({kr_code}-{YY}{SEQ}) 발급/딜러 포털 로그인 연결에 쓰이는 값이라
+  // 오타로 인한 공백/대소문자 차이가 매칭 실패로 이어지지 않도록 정리한다.
+  const krCode = data.kr_code?.trim().toUpperCase() || null;
   return {
     ...data,
+    kr_code: krCode,
     contact_name: data.contact_name || null,
     contact_email: data.contact_email || null,
     contact_phone: data.contact_phone || null,

@@ -25,9 +25,25 @@ export function DealerForm({
 
   return (
     <form action={action} className="space-y-4">
-      <div>
-        <Label htmlFor="name">딜러명</Label>
-        <Input id="name" name="name" required defaultValue={defaultValues?.name} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="name">딜러명</Label>
+          <Input id="name" name="name" required defaultValue={defaultValues?.name} />
+        </div>
+        <div>
+          <Label htmlFor="kr_code">KR Code (견적서 번호용)</Label>
+          <Input
+            id="kr_code"
+            name="kr_code"
+            placeholder="예: KR15"
+            className="font-mono uppercase"
+            defaultValue={defaultValues?.kr_code ?? ""}
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            견적서 번호({"{"}KR코드{"}"}-{"{"}연도{"}{"}순번{"}"})와 딜러 포털 로그인 연결에 쓰입니다. 비워두면 그
+            딜러는 견적서 자동 채번을 쓸 수 없어요. 다른 딜러와 중복될 수 없습니다.
+          </p>
+        </div>
       </div>
 
       {/* 기존 "구분"(플래그십/일반/온라인전용/총판) 필드는 세그먼트로 대체되어
