@@ -105,6 +105,43 @@ function buildEditableLines(order: DealerOrderAdminRow): EditableLine[] {
   }));
 }
 
+interface DemoRatioWarning {
+  category: string;
+  regularQty: number;
+  demoQty: number;
+  allowedDemoQty: number;
+}
+
+// 데모구매는 "같은 카테고리 정상구매 10개당 1개"까지만 허용하기로 한 사내
+// 규정이 있는데, 실제로 강제하는 로직은 없다(딜러가 혼동하기 쉬워서 카트
+// 단계에서 안내 문구만 보여주는 쪽으로 정리함 — 실시간으로 딱 막으면
+// 카테고리별로 묶어서 계산해야 하는 수고가 있어서였음). 대신 여기 관리자
+// 화면에서 주문을 검토할 때 규정을 넘겼을 가능성이 있는 카테고리를 빨간
+// 배너로 짚어줘서, 담당자가 견적서를 작성하기 전에 한 번 더 확인할 수 있게
+// 한다.
+function computeDemoRatioWarnings(items: DealerOrderAdminRow["dealer_order_items"]): DemoRatioWarning[] {
+  const byCategory = new Map<string, { regularQty: number; demoQty: number }>();
+  for (const it of items ?? []) {
+    const category = it.products?.category ?? "(분류 없음)";
+    const entry = byCategory.get(category) ?? { regularQty: 0, demoQty: 0 };
+    if (it.is_demo) {
+      entry.demoQty += it.quantity;
+    } else {
+      entry.regularQty += it.quantity;
+    }
+    byCategory.set(category, entry);
+  }
+
+  const warnings: DemoRatioWarning[] = [];
+  for (const [category, { regularQty, demoQty }] of byCategory) {
+    const allowedDemoQty = Math.floor(regularQty / 10);
+    if (demoQty > allowedDemoQty) {
+      warnings.push({ category, regularQty, demoQty, allowedDemoQty });
+    }
+  }
+  return warnings;
+}
+
 export function OrderDetailModal({
   order,
   catalog,
@@ -122,8 +159,9 @@ export function OrderDetailModal({
   const [saveResult, setSaveResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const items = order.dealer_order_items ?? [];
+  const items = useMemo(() => order.dealer_order_items ?? [], [order.dealer_order_items]);
   const totalQty = items.reduce((sum, it) => sum + it.quantity, 0);
+  const demoRatioWarnings = useMemo(() => computeDemoRatioWarnings(items), [items]);
   const itemsSubtotal = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
   const shippingFee = Number(order.auto_shipping_fee ?? 0) + Number(order.manual_shipping_fee ?? 0);
   // 입금 확인 시 관리자가 견적서에 맞춰 직접 고쳐 입력한 금액이 있으면 그것을, 없으면(아직 입금 전) 상품 공급가액 + 배송비로 계산한 예상 금액을 보여준다.
@@ -287,6 +325,20 @@ export function OrderDetailModal({
                 </div>
                 <RemarksBlock />
               </div>
+
+              {demoRatioWarnings.length > 0 && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">
+                  <p className="font-semibold">⚠ 데모구매 규정 초과 가능성 (카테고리당 정상구매 10개당 1개)</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {demoRatioWarnings.map((w) => (
+                      <li key={w.category}>
+                        {w.category} — 정상구매 {w.regularQty}개 · 데모구매 {w.demoQty}개 (규정상 최대{" "}
+                        {w.allowedDemoQty}개까지)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {!isEditing ? (
                 <>

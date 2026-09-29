@@ -12,7 +12,7 @@ export default async function DealerOrdersPage() {
     supabase
       .from("dealer_orders")
       .select(
-        "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku))"
+        "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
       )
       .order("order_date", { ascending: false })
       .limit(100),

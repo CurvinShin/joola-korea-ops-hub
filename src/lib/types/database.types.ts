@@ -252,7 +252,7 @@ export interface DealerOrderAdminRow {
     quantity: number;
     unit_price: number;
     is_demo: boolean;
-    products: { name: string; sku: string } | null;
+    products: { name: string; sku: string; category: string | null } | null;
   }[];
 }
 

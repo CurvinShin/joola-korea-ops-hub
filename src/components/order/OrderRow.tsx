@@ -88,10 +88,15 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
             )}
           </p>
           {demoAllowed ? (
-            <label className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
-              데모구매 (소비자가 65% 할인)
-            </label>
+            <div className="mt-1">
+              <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
+                데모구매 (소비자가 65% 할인)
+              </label>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                같은 카테고리 정상구매 10개당 1개까지만 데모구매 가능합니다.
+              </p>
+            </div>
           ) : (
             <p className="mt-1 text-xs text-slate-400">
               이 상품은 데모구매 불가 (별도 데모 전용 SKU 이용)

@@ -182,6 +182,7 @@ export function CartReviewModal() {
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
             재고 상황에 따라 수량이 조정될 수 있습니다. 이 화면의 금액은 송금하실 금액이 아니며, 이메일로
             받으실 견적서에는 국내배송비가 추가됩니다. 이메일로 발송되는 배송비를 확인하신 후 송금 바랍니다.
+            데모구매는 같은 카테고리 정상구매 10개당 1개까지만 가능하니 참고해주세요.
           </p>
 
           {result && (
