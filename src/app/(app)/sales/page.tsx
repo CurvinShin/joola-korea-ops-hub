@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { KpiCard } from "@/components/dashboard/KpiCard";
@@ -77,11 +78,19 @@ export default async function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">영업</h1>
-        <p className="text-sm text-slate-500">
-          딜러 매출(견적서 기준)과 스마트스토어 매출(정산 기준)을 월별로 합산해서 보여줍니다.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">영업</h1>
+          <p className="text-sm text-slate-500">
+            딜러 매출(견적서 기준)과 스마트스토어 매출(정산 기준)을 월별로 합산해서 보여줍니다.
+          </p>
+        </div>
+        <Link
+          href="/sales/product-categories"
+          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        >
+          제품군 분석 보기 →
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

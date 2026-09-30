@@ -17,6 +17,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; phase
       { href: "/inventory", label: "재고" },
       { href: "/purchase-orders", label: "발주" },
       { href: "/sales", label: "영업" },
+      { href: "/sales/product-categories", label: "제품군 분석" },
     ],
   },
   {
