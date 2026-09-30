@@ -12,9 +12,9 @@ export default async function DealerOrdersPage() {
     supabase
       .from("dealer_orders")
       .select(
-        "id, order_date, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
+        "id, dealer_id, order_date, created_at, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
       )
-      .order("order_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(100),
     // draft 주문을 관리자가 직접 수정할 때 SKU로 품목을 추가할 수 있게 —
     // 딜러 주문 화면(/order)이 쓰는 것과 같은 카탈로그를 그대로 가져온다.

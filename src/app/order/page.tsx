@@ -1,16 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { DealerOrderWorkspace } from "@/components/order/DealerOrderWorkspace";
+import { MyOrdersList, type MyOrderRow } from "@/components/order/MyOrdersList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 import type { CartItem } from "@/components/order/CartContext";
 import type { EditOrderPrefill } from "@/components/order/DealerOrderWorkspace";
 
 export const dynamic = "force-dynamic";
-
-const currency = (n: number) =>
-  new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
 
 export default async function OrderPage({
   searchParams,
@@ -140,42 +136,7 @@ export default async function OrderPage({
           <CardTitle>내 주문 내역</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {orders && orders.length > 0 ? (
-            <div className="divide-y divide-slate-100">
-              {orders.map((o: any) => (
-                <div key={o.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm text-slate-900">
-                      {o.order_date} ·{" "}
-                      {o.dealer_order_items
-                        ?.map((it: any) => `${it.products?.name ?? ""}${it.is_demo ? "(데모)" : ""}`)
-                        .filter(Boolean)
-                        .join(", ") || "—"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {o.dealer_order_items?.reduce((sum: number, it: any) => sum + it.quantity, 0) ?? 0}개
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {o.status === "draft" && (
-                      <a href={`/order?edit=${o.id}`} className="text-xs text-brand-600 hover:underline">
-                        수정
-                      </a>
-                    )}
-                    {o.order_type === "demo" && (
-                      <Badge tone="purple">{dealerOrderTypeLabel[o.order_type]}</Badge>
-                    )}
-                    <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>
-                    <span className="text-sm font-medium text-slate-900">
-                      {currency(Number(o.total_amount))}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-sm text-slate-400">주문 내역이 없습니다.</p>
-          )}
+          <MyOrdersList orders={(orders ?? []) as unknown as MyOrderRow[]} />
         </CardContent>
       </Card>
     </div>

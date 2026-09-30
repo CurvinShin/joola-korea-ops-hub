@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { priceCartItemsForDealer, validateCartInput } from "@/lib/utils/dealer-cart-pricing";
+import { mergeDraftOrders, type MergeOrdersResult } from "@/lib/utils/order-merge";
 
 // Admin-only actions for reviewing orders dealers place through /order.
 // The actual 견적서/발주서 document is created by the admin in 경리나라
@@ -77,6 +78,22 @@ export async function updateDealerOrderItemsAdmin(
   revalidatePath("/dealer-orders");
   revalidatePath("/order");
   return { ok: true, message: "주문이 수정되었습니다." };
+}
+
+/**
+ * 관리자 화면(딜러 주문 목록)에서 같은 딜러의 draft 주문 여러 건을 하나로
+ * 합친다 — 실제 로직은 order-merge.ts에 있고(딜러 본인용
+ * mergeDealerDraftOrders와 공유), 관리자는 스태프 권한으로 어느 딜러의
+ * 주문이든 다룰 수 있으므로 dealerId 제한 없이 그대로 위임한다.
+ */
+export async function mergeDealerOrdersAdmin(orderIds: string[]): Promise<MergeOrdersResult> {
+  const supabase = createClient();
+  const result = await mergeDraftOrders(supabase, orderIds);
+  if (result.ok) {
+    revalidatePath("/dealer-orders");
+    revalidatePath("/order");
+  }
+  return result;
 }
 
 export async function setDealerOrderStatus(id: string, status: string) {

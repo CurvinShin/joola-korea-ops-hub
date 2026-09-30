@@ -229,7 +229,9 @@ export interface DealerOrder {
 // with its dealer name and line items embedded via Supabase's FK joins.
 export interface DealerOrderAdminRow {
   id: string;
+  dealer_id: string;
   order_date: string;
+  created_at: string;
   status: "draft" | "confirmed" | "shipped" | "delivered" | "cancelled";
   order_type: DealerOrderType;
   synced_to_accounting: boolean;

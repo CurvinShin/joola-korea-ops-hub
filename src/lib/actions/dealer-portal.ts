@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { priceCartItemsForDealer, validateCartInput } from "@/lib/utils/dealer-cart-pricing";
+import { mergeDraftOrders, type MergeOrdersResult } from "@/lib/utils/order-merge";
 
 type PlaceOrderResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -170,4 +171,29 @@ export async function updateDealerCartOrder(
 
   revalidatePath("/order");
   return { ok: true, message: "주문이 수정되었습니다." };
+}
+
+/**
+ * 딜러 본인이 자기 draft 주문 여러 건을 하나로 합친다 — "내 주문 내역"에서
+ * 체크박스로 고른 주문들을 넘긴다. 실제 합치기 로직은 order-merge.ts에
+ * 있고(관리자용 mergeDealerOrdersAdmin과 공유), 여기서는 로그인한 딜러
+ * 본인 소유 주문끼리만 합칠 수 있도록 dealerId를 한 번 더 확인만 한다.
+ */
+export async function mergeDealerDraftOrders(orderIds: string[]): Promise<MergeOrdersResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "로그인이 필요합니다." };
+
+  const { data: profile } = await supabase.from("profiles").select("dealer_id").eq("id", user.id).single();
+  if (!profile?.dealer_id) {
+    return { ok: false, message: "계정에 연결된 딜러 정보가 없습니다. 관리자에게 문의해주세요." };
+  }
+
+  const result = await mergeDraftOrders(supabase, orderIds, { requireDealerId: profile.dealer_id });
+  if (result.ok) {
+    revalidatePath("/order");
+  }
+  return result;
 }
