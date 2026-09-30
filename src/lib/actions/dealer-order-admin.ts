@@ -98,9 +98,17 @@ export async function mergeDealerOrdersAdmin(orderIds: string[]): Promise<MergeO
 
 export async function setDealerOrderStatus(id: string, status: string) {
   const supabase = createClient();
-  const { error } = await supabase.from("dealer_orders").update({ status }).eq("id", id);
+  // "출고"로 바뀌는 순간이 곧 /sales 페이지 매출 인식 시점이다(shipped_at) —
+  // 다시 출고로 바뀌면(예: 실수로 되돌렸다가 재처리) 그때마다 최신 시각으로
+  // 갱신한다. 다른 상태로는 건드리지 않는다.
+  const update: Record<string, unknown> = { status };
+  if (status === "shipped") {
+    update.shipped_at = new Date().toISOString();
+  }
+  const { error } = await supabase.from("dealer_orders").update(update).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/dealer-orders");
+  revalidatePath("/sales");
 }
 
 export async function setDealerOrderSynced(id: string, synced: boolean) {

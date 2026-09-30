@@ -5,6 +5,7 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { SmartstoreSettlementsPanel, type SmartstoreEntry } from "@/components/sales/SmartstoreSettlementsPanel";
 import { SMARTSTORE_SOURCE } from "@/lib/utils/sales";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,16 @@ function sumForYear(map: Map<string, number>, year: string) {
 export default async function SalesPage() {
   const supabase = createClient();
 
-  // 딜러 매출은 dealer_quotes(견적서 합계금액, 부가세·배송비 포함)을 그대로
-  // 월별로 더한 값 — 새로 입력할 필요 없이 이미 있는 데이터를 그대로 쓴다.
+  // 딜러 매출은 dealer_quotes(견적서 합계금액, 부가세·배송비 포함)를 그대로
+  // 월별로 더한 값이다. "딜러주문에서 출고 상태로 바뀔 때"를 기준으로
+  // 바꾸는 방안도 검토했지만, 실제 딜러 매출 대부분은 경리나라 등 사이트
+  // 밖에서 발행되는 견적서 기반이라 dealer_orders에 아예 주문 行이 없다 —
+  // dealer_orders/출고 상태는 딜러가 사이트에 직접 로그인해서 담은 주문에만
+  // 생긴다. 그래서 dealer_orders 기준으로 바꾸면 매출이 실제보다 훨씬
+  // 작게 잡히므로, 이 페이지는 계속 dealer_quotes를 쓰고 shipped_at은
+  // (딜러주문 화면 자체를 위해) 별도로만 남겨뒀다. 자세한 내용은
+  // Claude와의 대화 참고 — 사이트 밖 견적서도 매번 딜러주문에 입력하는
+  // 식으로 프로세스를 바꾸면 dealer_orders 기준 전환도 가능하다.
   // 스마트스토어 매출은 담당자가 매월 직접 입력하는 정산액
   // (sales_transactions, channel="ecommerce")이다.
   const [{ data: quotes }, { data: smartstoreRows }] = await Promise.all([
@@ -85,12 +94,15 @@ export default async function SalesPage() {
             딜러 매출(견적서 기준)과 스마트스토어 매출(정산 기준)을 월별로 합산해서 보여줍니다.
           </p>
         </div>
-        <Link
-          href="/sales/product-categories"
-          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
-        >
-          제품군 분석 보기 →
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <RefreshButton />
+          <Link
+            href="/sales/product-categories"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            제품군 분석 보기 →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -221,6 +221,7 @@ export interface DealerOrder {
   order_number: string | null;
   payment_confirmed_at: string | null;
   payment_confirmed_by: string | null;
+  shipped_at: string | null;
   notes: string | null;
   created_at: string;
 }
@@ -242,6 +243,7 @@ export interface DealerOrderAdminRow {
   confirmed_total_amount: number | null;
   order_number: string | null;
   stock_deducted: boolean;
+  shipped_at: string | null;
   dealers: {
     name: string;
     address: string | null;
