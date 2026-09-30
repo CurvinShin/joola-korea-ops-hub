@@ -126,30 +126,44 @@ export async function setDealerOrderSynced(id: string, synced: boolean) {
  * 목록의 "공급가액" 열이 항상 확정 총액과 일치하도록 한다(입금 확인 때와
  * 같은 패턴).
  */
-export async function updateConfirmedTotalAmount(orderId: string, confirmedTotalAmount: number) {
-  const supabase = createClient();
+export async function updateConfirmedTotalAmount(
+  orderId: string,
+  confirmedTotalAmount: number
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    // 화면에서 숫자 입력칸이 비어있거나 잘못된 값이면 Number(...)가 NaN을
+    // 만드는데, NaN은 그대로 두면 여기까지 안 걸리고 아래 update 요청 자체가
+    // (유효한 JSON이 아니라서) 실패해서 "눌러도 아무 반응 없음"처럼 보였다 —
+    // 여기서 먼저 걸러서 이유를 화면에 보여준다.
+    if (!Number.isFinite(confirmedTotalAmount) || confirmedTotalAmount < 0) {
+      return { ok: false, message: "금액을 확인해주세요." };
+    }
 
-  const { data: order, error: orderErr } = await supabase
-    .from("dealer_orders")
-    .select("id, status")
-    .eq("id", orderId)
-    .single();
-  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
-  if (order.status === "draft" || order.status === "cancelled") {
-    throw new Error("입금 확인이 끝난 주문만 확정 총액을 수정할 수 있습니다.");
+    const supabase = createClient();
+
+    const { data: order, error: orderErr } = await supabase
+      .from("dealer_orders")
+      .select("id, status")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr) return { ok: false, message: `주문 조회 실패: ${orderErr.message}` };
+    if (!order) return { ok: false, message: "주문을 찾을 수 없습니다." };
+    if (order.status === "draft" || order.status === "cancelled") {
+      return { ok: false, message: "입금 확인이 끝난 주문만 확정 총액을 수정할 수 있습니다." };
+    }
+
+    const { error } = await supabase
+      .from("dealer_orders")
+      .update({ confirmed_total_amount: confirmedTotalAmount, total_amount: confirmedTotalAmount })
+      .eq("id", orderId);
+    if (error) return { ok: false, message: `저장 실패: ${error.message}` };
+
+    revalidatePath("/dealer-orders");
+    revalidatePath("/order");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다." };
   }
-  if (!Number.isFinite(confirmedTotalAmount) || confirmedTotalAmount < 0) {
-    throw new Error("금액을 확인해주세요.");
-  }
-
-  const { error } = await supabase
-    .from("dealer_orders")
-    .update({ confirmed_total_amount: confirmedTotalAmount, total_amount: confirmedTotalAmount })
-    .eq("id", orderId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/dealer-orders");
-  revalidatePath("/order");
 }
 
 /**
@@ -171,62 +185,85 @@ export async function confirmDealerOrderPayment(
   orderId: string,
   manualShippingFee: number | null,
   confirmedTotalAmount: number | null
-) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: order, error: orderErr } = await supabase
-    .from("dealer_orders")
-    .select("id, stock_deducted")
-    .eq("id", orderId)
-    .single();
-  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
-
-  if (!order.stock_deducted) {
-    const { data: items, error: itemsErr } = await supabase
-      .from("dealer_order_items")
-      .select("product_id, quantity")
-      .eq("order_id", orderId);
-    if (itemsErr) throw new Error(itemsErr.message);
-
-    for (const item of items ?? []) {
-      const { data: inv, error: invErr } = await supabase
-        .from("inventory")
-        .select("current_stock")
-        .eq("product_id", item.product_id)
-        .single();
-      if (invErr) throw new Error(`재고 조회 실패: ${invErr.message}`);
-      const nextStock = (inv?.current_stock ?? 0) - item.quantity;
-      const { error: updErr } = await supabase
-        .from("inventory")
-        .update({ current_stock: nextStock, updated_at: new Date().toISOString() })
-        .eq("product_id", item.product_id);
-      if (updErr) throw new Error(`재고 차감 실패: ${updErr.message}`);
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    // 확정총액 입력칸이 비어있거나 숫자가 아니면 화면에서 Number(...)가 NaN을
+    // 만들어 넘어오는데, 그동안은 이걸 그대로 DB 요청까지 들고 가서 저장이
+    // 조용히 실패하고(버튼을 눌러도 반응이 없는 것처럼 보임) 있었다 — 여기서
+    // 먼저 걸러서 이유를 화면에 보여준다.
+    if (confirmedTotalAmount != null && !Number.isFinite(confirmedTotalAmount)) {
+      return { ok: false, message: "확정총액 숫자를 확인해주세요." };
     }
+    if (manualShippingFee != null && !Number.isFinite(manualShippingFee)) {
+      return { ok: false, message: "추가 배송비 숫자를 확인해주세요." };
+    }
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { data: order, error: orderErr } = await supabase
+      .from("dealer_orders")
+      .select("id, stock_deducted")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr) return { ok: false, message: `주문 조회 실패: ${orderErr.message}` };
+    if (!order) return { ok: false, message: "주문을 찾을 수 없습니다." };
+
+    if (!order.stock_deducted) {
+      const { data: items, error: itemsErr } = await supabase
+        .from("dealer_order_items")
+        .select("product_id, quantity")
+        .eq("order_id", orderId);
+      if (itemsErr) return { ok: false, message: `주문 품목 조회 실패: ${itemsErr.message}` };
+
+      for (const item of items ?? []) {
+        // maybeSingle — 상품에 재고 행이 아직 한 번도 생성된 적 없으면(오래된
+        // 일괄 등록 상품 등) single()은 "0 rows"로 오류를 던졌었다. 그러면 이
+        // 품목 하나 때문에 입금 확인 전체가 조용히 실패했다. 재고 행이 없으면
+        // 0에서 시작한다고 보고 upsert로 새로 만든다.
+        const { data: inv, error: invErr } = await supabase
+          .from("inventory")
+          .select("current_stock")
+          .eq("product_id", item.product_id)
+          .maybeSingle();
+        if (invErr) return { ok: false, message: `재고 조회 실패: ${invErr.message}` };
+        const nextStock = (inv?.current_stock ?? 0) - item.quantity;
+        const { error: updErr } = await supabase
+          .from("inventory")
+          .upsert(
+            { product_id: item.product_id, current_stock: nextStock, updated_at: new Date().toISOString() },
+            { onConflict: "product_id" }
+          );
+        if (updErr) return { ok: false, message: `재고 차감 실패: ${updErr.message}` };
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      status: "confirmed",
+      stock_deducted: true,
+      manual_shipping_fee: manualShippingFee,
+      confirmed_total_amount: confirmedTotalAmount,
+      payment_confirmed_at: new Date().toISOString(),
+      payment_confirmed_by: user?.id ?? null,
+    };
+    // 관리자가 입력한 확정 총액이 있으면 total_amount 자체도 그 값으로 맞춰서,
+    // 이후로는 목록/상세 어디를 봐도 실제 입금액과 같은 숫자가 보이게 한다.
+    if (confirmedTotalAmount != null) {
+      updatePayload.total_amount = confirmedTotalAmount;
+    }
+
+    const { error } = await supabase.from("dealer_orders").update(updatePayload).eq("id", orderId);
+    if (error) return { ok: false, message: `저장 실패: ${error.message}` };
+
+    revalidatePath("/dealer-orders");
+    revalidatePath("/inventory");
+    revalidatePath("/order");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다." };
   }
-
-  const updatePayload: Record<string, unknown> = {
-    status: "confirmed",
-    stock_deducted: true,
-    manual_shipping_fee: manualShippingFee,
-    confirmed_total_amount: confirmedTotalAmount,
-    payment_confirmed_at: new Date().toISOString(),
-    payment_confirmed_by: user?.id ?? null,
-  };
-  // 관리자가 입력한 확정 총액이 있으면 total_amount 자체도 그 값으로 맞춰서,
-  // 이후로는 목록/상세 어디를 봐도 실제 입금액과 같은 숫자가 보이게 한다.
-  if (confirmedTotalAmount != null) {
-    updatePayload.total_amount = confirmedTotalAmount;
-  }
-
-  const { error } = await supabase.from("dealer_orders").update(updatePayload).eq("id", orderId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/dealer-orders");
-  revalidatePath("/inventory");
-  revalidatePath("/order");
 }
 
 /**

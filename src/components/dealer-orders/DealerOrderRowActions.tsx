@@ -49,9 +49,14 @@ export function DealerOrderRowActions({
   const [confirmedTotalInput, setConfirmedTotalInput] = useState(
     confirmedTotalAmount != null ? String(confirmedTotalAmount) : String(suggestedTotal)
   );
+  // 입금 확인/확정총액 저장이 실패했을 때 이유를 보여주기 위한 상태 — 예전엔
+  // 서버 액션이 그냥 에러를 throw하기만 하고 화면에서 아무것도 잡지 않아서,
+  // 실패해도 버튼을 눌렀는데 아무 반응이 없는 것처럼만 보였다.
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col items-end gap-2">
+      {error && <p className="max-w-[220px] text-right text-[11px] font-medium text-red-600">{error}</p>}
       <label className="flex items-center gap-1.5 text-xs text-slate-500">
         <input
           type="checkbox"
@@ -88,15 +93,23 @@ export function DealerOrderRowActions({
           <Button
             size="sm"
             disabled={isPending || totalInput === ""}
-            onClick={() =>
-              startTransition(() =>
-                confirmDealerOrderPayment(
-                  orderId,
-                  shippingInput === "" ? null : Number(shippingInput),
-                  Number(totalInput)
-                )
-              )
-            }
+            onClick={() => {
+              setError(null);
+              const total = Number(totalInput);
+              const shipping = shippingInput === "" ? null : Number(shippingInput);
+              if (!Number.isFinite(total)) {
+                setError("확정총액 숫자를 확인해주세요.");
+                return;
+              }
+              if (shipping != null && !Number.isFinite(shipping)) {
+                setError("추가 배송비 숫자를 확인해주세요.");
+                return;
+              }
+              startTransition(async () => {
+                const result = await confirmDealerOrderPayment(orderId, shipping, total);
+                if (!result.ok) setError(result.message);
+              });
+            }}
           >
             입금 확인 (재고 차감)
           </Button>
@@ -132,9 +145,18 @@ export function DealerOrderRowActions({
                 size="sm"
                 variant="secondary"
                 disabled={isPending || confirmedTotalInput === ""}
-                onClick={() =>
-                  startTransition(() => updateConfirmedTotalAmount(orderId, Number(confirmedTotalInput)))
-                }
+                onClick={() => {
+                  setError(null);
+                  const total = Number(confirmedTotalInput);
+                  if (!Number.isFinite(total)) {
+                    setError("금액을 확인해주세요.");
+                    return;
+                  }
+                  startTransition(async () => {
+                    const result = await updateConfirmedTotalAmount(orderId, total);
+                    if (!result.ok) setError(result.message);
+                  });
+                }}
               >
                 저장
               </Button>
