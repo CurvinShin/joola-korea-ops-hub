@@ -1,20 +1,24 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { KpiCard } from "@/components/dashboard/KpiCard";
-import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
-import { CategoryCharts } from "@/components/sales/CategoryCharts";
-import { SmartstoreCharts } from "@/components/sales/SmartstoreCharts";
-import {
-  TOP_CATEGORIES,
-  PADDLE_SUBS,
-  type ProductCategoryReport,
-  type SmartstoreCategoryReport,
-} from "@/lib/reports/productCategoryReport";
+"use client";
 
-const currency = (n: number) =>
-  new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
-const numberFmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
-const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+import { useState } from "react";
+import { cn } from "@/lib/utils/cn";
+import { DealerCategorySection } from "@/components/sales/DealerCategorySection";
+import { SmartstoreCategorySection } from "@/components/sales/SmartstoreCategorySection";
+import type { ProductCategoryReport, SmartstoreCategoryReport } from "@/lib/reports/productCategoryReport";
 
+type Tab = "dealer" | "smartstore" | "all";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "dealer", label: "딜러 구매" },
+  { key: "smartstore", label: "스마트스토어" },
+  { key: "all", label: "전체" },
+];
+
+// 딜러(금액 기준)와 스마트스토어(수량 기준) 데이터가 서로 다른 소스라 한 화면에
+// 다 뿌려두면 헷갈리기 쉬워서 탭으로 나눴다. "전체" 탭은 예전처럼 둘 다 이어서
+// 보여준다. 데이터는 이미 서버에서 다 가져와 있고(report/smartstoreReport),
+// 탭 전환은 그 중 어떤 걸 보여줄지만 클라이언트에서 고르는 것 — 탭을 눌러도
+// 다시 서버에 요청하지 않는다.
 export function ProductCategoryReportView({
   report,
   smartstoreReport,
@@ -22,358 +26,48 @@ export function ProductCategoryReportView({
   report: ProductCategoryReport;
   smartstoreReport?: SmartstoreCategoryReport;
 }) {
-  const {
-    rows,
-    dealerNameByKrCode,
-    totalAmount,
-    byCategory,
-    byPaddleSub,
-    paddleTotal,
-    dealerKrCodes,
-    byDealerCategory,
-    months,
-    byMonthCategory,
-    currentMonth,
-    currentMonthTotal,
-    momChange,
-    lastQuoteDate,
-  } = report;
-
-  const pieData = TOP_CATEGORIES.map((cat) => ({
-    name: cat,
-    value: byCategory.get(cat)?.amount ?? 0,
-  })).filter((d) => d.value > 0);
-
-  const paddleBarData = PADDLE_SUBS.map((sub) => ({
-    name: sub,
-    amount: byPaddleSub.get(sub)?.amount ?? 0,
-  })).filter((d) => d.amount > 0);
-
-  const monthBarData = months.map((m) => {
-    const entry: Record<string, string | number> = { month: m };
-    for (const cat of TOP_CATEGORIES) {
-      entry[cat] = byMonthCategory.get(m)?.get(cat) ?? 0;
-    }
-    return entry;
-  });
+  const [tab, setTab] = useState<Tab>("all");
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="누계 공급가액" value={currency(totalAmount)} hint={`품목 ${numberFmt(rows.length)}건 기준`} />
-        <KpiCard
-          label="패들 비중"
-          value={totalAmount > 0 ? pct(paddleTotal / totalAmount) : "-"}
-          hint={currency(paddleTotal)}
-        />
-        <KpiCard
-          label={currentMonth ? `${currentMonth} 공급가액` : "이번 달 공급가액"}
-          value={currency(currentMonthTotal)}
-          hint={momChange !== null ? `전월 대비 ${momChange >= 0 ? "+" : ""}${pct(momChange)}` : "전월 데이터 없음"}
-          tone={momChange !== null && momChange < 0 ? "warning" : "default"}
-        />
-        <KpiCard
-          label="딜러 수"
-          value={`${dealerKrCodes.length}개사`}
-          hint={lastQuoteDate ? `최신 견적일자 ${lastQuoteDate}` : undefined}
-        />
+      <div className="flex gap-1 border-b border-slate-200">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "-mb-px border-b-2 px-4 py-2 text-sm font-medium",
+              tab === t.key
+                ? "border-brand-600 text-brand-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <CategoryCharts
-        pieData={pieData}
-        paddleBarData={paddleBarData}
-        monthBarData={monthBarData}
-        categories={[...TOP_CATEGORIES]}
-      />
+      {tab === "dealer" && <DealerCategorySection report={report} />}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>대분류별 요약</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>대분류</Th>
-                <Th className="text-right">수량</Th>
-                <Th className="text-right">공급가액</Th>
-                <Th className="text-right">비중</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {TOP_CATEGORIES.map((cat) => {
-                const v = byCategory.get(cat) ?? { qty: 0, amount: 0 };
-                return (
-                  <Tr key={cat}>
-                    <Td className="font-medium text-slate-900">{cat}</Td>
-                    <Td className="text-right">{numberFmt(v.qty)}</Td>
-                    <Td className="text-right">{currency(v.amount)}</Td>
-                    <Td className="text-right">{totalAmount > 0 ? pct(v.amount / totalAmount) : "-"}</Td>
-                  </Tr>
-                );
-              })}
-              <Tr className="bg-slate-50 font-semibold">
-                <Td>합계</Td>
-                <Td className="text-right">
-                  {numberFmt(TOP_CATEGORIES.reduce((s, c) => s + (byCategory.get(c)?.qty ?? 0), 0))}
-                </Td>
-                <Td className="text-right">{currency(totalAmount)}</Td>
-                <Td className="text-right">100%</Td>
-              </Tr>
-            </tbody>
-          </Table>
-        </CardContent>
-      </Card>
+      {tab === "smartstore" &&
+        (smartstoreReport ? (
+          <SmartstoreCategorySection smartstoreReport={smartstoreReport} />
+        ) : (
+          <p className="py-10 text-center text-sm text-slate-500">스마트스토어 데이터를 불러올 수 없습니다.</p>
+        ))}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>패들 세부 라인별 요약</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>라인(Tier)</Th>
-                <Th className="text-right">수량</Th>
-                <Th className="text-right">공급가액</Th>
-                <Th className="text-right">패들 내 비중</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {PADDLE_SUBS.map((sub) => {
-                const v = byPaddleSub.get(sub) ?? { qty: 0, amount: 0 };
-                if (v.qty === 0 && v.amount === 0) return null;
-                return (
-                  <Tr key={sub}>
-                    <Td className="font-medium text-slate-900">{sub}</Td>
-                    <Td className="text-right">{numberFmt(v.qty)}</Td>
-                    <Td className="text-right">{currency(v.amount)}</Td>
-                    <Td className="text-right">{paddleTotal > 0 ? pct(v.amount / paddleTotal) : "-"}</Td>
-                  </Tr>
-                );
-              })}
-              <Tr className="bg-slate-50 font-semibold">
-                <Td>패들 합계</Td>
-                <Td className="text-right">
-                  {numberFmt(PADDLE_SUBS.reduce((s, sub) => s + (byPaddleSub.get(sub)?.qty ?? 0), 0))}
-                </Td>
-                <Td className="text-right">{currency(paddleTotal)}</Td>
-                <Td className="text-right">100%</Td>
-              </Tr>
-            </tbody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>딜러별 대분류 공급가액</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>딜러</Th>
-                {TOP_CATEGORIES.map((cat) => (
-                  <Th key={cat} className="text-right">
-                    {cat}
-                  </Th>
-                ))}
-                <Th className="text-right">합계</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {dealerKrCodes.map((kr) => {
-                const m = byDealerCategory.get(kr) ?? new Map<string, number>();
-                const rowTotal = Array.from(m.values()).reduce((a, b) => a + b, 0);
-                return (
-                  <Tr key={kr}>
-                    <Td className="font-medium text-slate-900">
-                      {dealerNameByKrCode.get(kr) ?? kr} <span className="text-slate-400">({kr})</span>
-                    </Td>
-                    {TOP_CATEGORIES.map((cat) => (
-                      <Td key={cat} className="text-right">
-                        {currency(m.get(cat) ?? 0)}
-                      </Td>
-                    ))}
-                    <Td className="text-right font-semibold">{currency(rowTotal)}</Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>월별 대분류 공급가액</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>월</Th>
-                {TOP_CATEGORIES.map((cat) => (
-                  <Th key={cat} className="text-right">
-                    {cat}
-                  </Th>
-                ))}
-                <Th className="text-right">합계</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {months.map((m) => {
-                const mm = byMonthCategory.get(m) ?? new Map<string, number>();
-                const rowTotal = Array.from(mm.values()).reduce((a, b) => a + b, 0);
-                return (
-                  <Tr key={m}>
-                    <Td className="font-medium text-slate-900">{m}</Td>
-                    {TOP_CATEGORIES.map((cat) => (
-                      <Td key={cat} className="text-right">
-                        {currency(mm.get(cat) ?? 0)}
-                      </Td>
-                    ))}
-                    <Td className="text-right font-semibold">{currency(rowTotal)}</Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {smartstoreReport && smartstoreReport.hasData && (
-        <>
-          <div className="pt-2">
-            <h2 className="text-lg font-semibold text-slate-900">스마트스토어 판매 현황 (수량 기준)</h2>
-            <p className="text-sm text-slate-500">
-              스마트스토어 주문조회 내보내기에는 판매 금액이 없어 수량 기준으로만 보여줍니다. 위 딜러
-              금액 기준 데이터와는 서로 다른 소스입니다.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="누계 판매 수량" value={`${numberFmt(smartstoreReport.totalQuantity)}개`} hint="취소·반품 제외" />
-            <KpiCard
-              label="패들 비중"
-              value={
-                smartstoreReport.totalQuantity > 0
-                  ? pct(smartstoreReport.paddleQuantity / smartstoreReport.totalQuantity)
-                  : "-"
-              }
-              hint={`${numberFmt(smartstoreReport.paddleQuantity)}개`}
-            />
-            <KpiCard
-              label="최근 주문일"
-              value={smartstoreReport.lastOrderDate ?? "-"}
-              hint={`제외된 주문(취소·반품 등) ${numberFmt(smartstoreReport.excludedCount)}건`}
-            />
-            <KpiCard
-              label="미분류 품목"
-              value={`${numberFmt(smartstoreReport.unclassifiedCount)}건`}
-              tone={smartstoreReport.unclassifiedCount > 0 ? "warning" : "default"}
-              hint={smartstoreReport.unclassifiedCount > 0 ? "새 상품명 — 분류 규칙 보강 필요" : "전부 분류됨"}
-            />
-          </div>
-
-          <SmartstoreCharts
-            pieData={[...TOP_CATEGORIES, "미분류"]
-              .map((cat) => ({ name: cat, value: smartstoreReport.byCategory.get(cat) ?? 0 }))
-              .filter((d) => d.value > 0)}
-            paddleBarData={PADDLE_SUBS.map((sub) => ({
-              name: sub,
-              qty: smartstoreReport.byPaddleSub.get(sub) ?? 0,
-            })).filter((d) => d.qty > 0)}
-            monthBarData={smartstoreReport.months.map((m) => {
-              const entry: Record<string, string | number> = { month: m };
-              for (const cat of [...TOP_CATEGORIES, "미분류"]) {
-                entry[cat] = smartstoreReport.byMonthCategory.get(m)?.get(cat) ?? 0;
-              }
-              return entry;
-            })}
-            categories={[...TOP_CATEGORIES, "미분류"]}
-          />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>스마트스토어 대분류별 판매 수량</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <Thead>
-                  <Tr>
-                    <Th>대분류</Th>
-                    <Th className="text-right">수량</Th>
-                    <Th className="text-right">비중</Th>
-                  </Tr>
-                </Thead>
-                <tbody>
-                  {[...TOP_CATEGORIES, "미분류"].map((cat) => {
-                    const qty = smartstoreReport.byCategory.get(cat) ?? 0;
-                    if (qty === 0) return null;
-                    return (
-                      <Tr key={cat}>
-                        <Td className="font-medium text-slate-900">{cat}</Td>
-                        <Td className="text-right">{numberFmt(qty)}</Td>
-                        <Td className="text-right">
-                          {smartstoreReport.totalQuantity > 0 ? pct(qty / smartstoreReport.totalQuantity) : "-"}
-                        </Td>
-                      </Tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>스마트스토어 베스트셀러 (상품별, 상위 15)</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <Thead>
-                  <Tr>
-                    <Th>상품명</Th>
-                    <Th>대분류</Th>
-                    <Th className="text-right">수량</Th>
-                  </Tr>
-                </Thead>
-                <tbody>
-                  {smartstoreReport.topProducts.map((p) => (
-                    <Tr key={p.productNo ?? p.productName}>
-                      <Td className="text-slate-900">{p.productName}</Td>
-                      <Td>{p.category}</Td>
-                      <Td className="text-right">{numberFmt(p.quantity)}</Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
-            </CardContent>
-          </Card>
-        </>
+      {tab === "all" && (
+        <div className="space-y-10">
+          <DealerCategorySection report={report} />
+          {smartstoreReport && (
+            <div className="space-y-6 border-t border-slate-200 pt-8">
+              <h2 className="text-lg font-semibold text-slate-900">스마트스토어 판매 현황 (수량 기준)</h2>
+              <SmartstoreCategorySection smartstoreReport={smartstoreReport} />
+            </div>
+          )}
+        </div>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>참고 사항</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-xs text-slate-500">
-          <p>
-            데이터는 딜러 견적서(dealer_quote_items) 품목 기준이며, 배송비 항목은 제외했습니다. 새 견적서가
-            나올 때마다 이 테이블에 품목이 추가되는 방식으로 갱신됩니다(자동 업로드 기능은 아직 없음).
-          </p>
-          <p>
-            2025년 견적서는 아직 반영되어 있지 않습니다(iCloud 미다운로드 상태로 읽지 못했던 파일들). 2026년
-            견적서 기준으로만 집계됩니다.
-          </p>
-          <p>
-            패들 세부 라인 분류는 품목명 기준 규칙 분류이며, 상품 마스터(products.category/subcategory)의
-            Champion/Edge/Pro 3단계 체계와는 다른 별도 체계입니다.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
