@@ -16,6 +16,19 @@ import type { DealerOrderAdminRow, DealerCatalogRow } from "@/lib/types/database
 const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
 
+// order_date는 date 타입이라 시각 정보가 없다 — 실제 접수 시각까지 보여달라는
+// 요청이라, 화면 표시는 created_at(timestamptz) 기준으로 "날짜 시:분"까지
+// 함께 포맷한다.
+const formatOrderDateTime = (createdAt: string) =>
+  new Date(createdAt).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
 type SortKey = "created_desc" | "created_asc" | "dealer_name" | "amount_desc";
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -218,7 +231,7 @@ export function DealerOrdersTable({
                     className="h-4 w-4 rounded border-slate-300"
                   />
                 </Td>
-                <Td className="whitespace-nowrap">{o.order_date}</Td>
+                <Td className="whitespace-nowrap">{formatOrderDateTime(o.created_at)}</Td>
                 <Td className="font-medium text-slate-900">{o.dealers?.name ?? "—"}</Td>
                 <Td>
                   <OrderDetailModal order={o} catalog={catalog} />
