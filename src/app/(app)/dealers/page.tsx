@@ -24,17 +24,26 @@ const statusTone: Record<DealerStatus, "green" | "amber" | "slate" | "red"> = {
   terminated: "red",
 };
 
+const SORT_OPTIONS = {
+  name: { label: "이름순", column: null },
+  ytd_desc: { label: "올해 구매액 많은순", column: "ytd_quote_amount" as const },
+  mtd_desc: { label: "이번달 구매액 많은순", column: "mtd_quote_amount" as const },
+} as const;
+type SortKey = keyof typeof SORT_OPTIONS;
+
 export default async function DealersPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; new?: string };
+  searchParams: { q?: string; status?: string; new?: string; sort?: string };
 }) {
   const supabase = createClient();
-  let query = supabase
-    .from("dealers")
-    .select("*")
-    .order("kr_code", { ascending: true, nullsFirst: false })
-    .order("name");
+  const sort: SortKey = searchParams.sort && searchParams.sort in SORT_OPTIONS ? (searchParams.sort as SortKey) : "name";
+  const sortColumn = SORT_OPTIONS[sort].column;
+
+  let query = supabase.from("dealers").select("*");
+  query = sortColumn
+    ? query.order(sortColumn, { ascending: false, nullsFirst: false })
+    : query.order("kr_code", { ascending: true, nullsFirst: false }).order("name");
 
   if (searchParams.q) {
     query = query.ilike("name", `%${searchParams.q}%`);
@@ -89,6 +98,13 @@ export default async function DealersPage({
           <option value="pending">대기</option>
           <option value="inactive">비활성</option>
           <option value="terminated">계약 종료</option>
+        </Select>
+        <Select name="sort" defaultValue={sort} className="max-w-[200px]">
+          {Object.entries(SORT_OPTIONS).map(([key, opt]) => (
+            <option key={key} value={key}>
+              {opt.label}
+            </option>
+          ))}
         </Select>
         <Button type="submit" variant="secondary">
           필터
