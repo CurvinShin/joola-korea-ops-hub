@@ -25,6 +25,7 @@ export default async function DashboardPage() {
     { data: pendingTasks },
     { data: monthSales },
     { data: monthTarget },
+    { data: monthDealerQuotes },
   ] = await Promise.all([
     supabase.from("dealers").select("*", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("inventory_status").select("*").eq("is_low_stock", true).eq("discontinued", false),
@@ -47,9 +48,16 @@ export default async function DashboardPage() {
       .limit(6),
     supabase.from("sales_transactions").select("amount").gte("sale_date", monthStart),
     supabase.from("sales_targets").select("target_amount").eq("period_month", monthStart).is("channel", null).maybeSingle(),
+    // 딜러 매출(견적서 기준)도 더한다 — /sales 페이지와 같은 방식(dealer_quotes
+    // 합계금액을 그대로 사용). 이걸 빼놓으면 스마트스토어(sales_transactions)만
+    // 집계되어, 견적서를 아무리 추가/수정해도 이 KPI에는 전혀 반영되지 않는다 —
+    // 9월 누락 견적서를 보정했는데도 대시보드 숫자가 그대로였던 원인이 이것이었다.
+    supabase.from("dealer_quotes").select("amount").gte("quote_date", monthStart),
   ]);
 
-  const monthSalesTotal = (monthSales ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+  const smartstoreMonthTotal = (monthSales ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+  const dealerMonthTotal = (monthDealerQuotes ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+  const monthSalesTotal = smartstoreMonthTotal + dealerMonthTotal;
   const target = monthTarget?.target_amount ? Number(monthTarget.target_amount) : null;
   const pctOfTarget = target ? Math.round((monthSalesTotal / target) * 100) : null;
 

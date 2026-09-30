@@ -3,37 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-
-const NAV_SECTIONS: { label: string; items: { href: string; label: string; phase2?: boolean }[] }[] = [
-  {
-    label: "개요",
-    items: [{ href: "/dashboard", label: "대시보드" }],
-  },
-  {
-    label: "운영",
-    items: [
-      { href: "/dealers", label: "딜러" },
-      { href: "/dealer-orders", label: "딜러 주문" },
-      { href: "/inventory", label: "재고" },
-      { href: "/purchase-orders", label: "발주" },
-      { href: "/sales", label: "영업" },
-      { href: "/sales/product-categories", label: "제품군 분석" },
-    ],
-  },
-  {
-    label: "성장",
-    items: [
-      { href: "/events", label: "이벤트" },
-      { href: "/facilities", label: "시설" },
-      { href: "/ambassadors", label: "앰버서더" },
-      { href: "/marketing", label: "마케팅", phase2: true },
-    ],
-  },
-  {
-    label: "업무",
-    items: [{ href: "/tasks", label: "작업" }],
-  },
-];
+import { NAV_SECTIONS } from "@/lib/nav";
 
 export function Sidebar() {
   const pathname = usePathname();
