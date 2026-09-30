@@ -37,7 +37,12 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth");
 
-  if (!user && !isAuthRoute) {
+  // 로그인 없이 열람 가능한 단일 보고서 페이지 — 접근 제어는 미들웨어가 아니라
+  // 페이지 자체가 PUBLIC_REPORT_TOKEN과 URL의 token을 비교해서 한다(admin.ts
+  // 참고). 여기서는 그 페이지가 /login으로 리다이렉트되지 않게만 해준다.
+  const isPublicReportRoute = request.nextUrl.pathname.startsWith("/public-report/");
+
+  if (!user && !isAuthRoute && !isPublicReportRoute) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
@@ -48,7 +53,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(profile?.role === "dealer" ? "/order" : "/dashboard", request.url));
   }
 
-  if (user && !isAuthRoute) {
+  if (user && !isAuthRoute && !isPublicReportRoute) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
     const isDealer = profile?.role === "dealer";
     const isOrderRoute = request.nextUrl.pathname.startsWith("/order");
