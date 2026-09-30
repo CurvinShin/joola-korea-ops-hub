@@ -111,6 +111,40 @@ export async function setDealerOrderSynced(id: string, synced: boolean) {
 }
 
 /**
+ * 입금 확인(confirmed/shipped/delivered)이 이미 끝난 주문의 확정 총액을
+ * 나중에 다시 고친다 — confirmDealerOrderPayment는 draft 상태에서 딱 한 번
+ * 총액을 확정하는 용도였는데, 확정 후에 견적서 금액이 바뀌거나 입력을
+ * 잘못했을 때 다시 열어서 고칠 방법이 없었다. total_amount도 같이 맞춰서
+ * 목록의 "공급가액" 열이 항상 확정 총액과 일치하도록 한다(입금 확인 때와
+ * 같은 패턴).
+ */
+export async function updateConfirmedTotalAmount(orderId: string, confirmedTotalAmount: number) {
+  const supabase = createClient();
+
+  const { data: order, error: orderErr } = await supabase
+    .from("dealer_orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .single();
+  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
+  if (order.status === "draft" || order.status === "cancelled") {
+    throw new Error("입금 확인이 끝난 주문만 확정 총액을 수정할 수 있습니다.");
+  }
+  if (!Number.isFinite(confirmedTotalAmount) || confirmedTotalAmount < 0) {
+    throw new Error("금액을 확인해주세요.");
+  }
+
+  const { error } = await supabase
+    .from("dealer_orders")
+    .update({ confirmed_total_amount: confirmedTotalAmount, total_amount: confirmedTotalAmount })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dealer-orders");
+  revalidatePath("/order");
+}
+
+/**
  * "입금 확인" — the moment stock actually leaves the warehouse in this
  * system's model. Deliberately deferred until here (not at order-submit
  * time) so a dealer can add items to the cart freely without touching real

@@ -277,6 +277,7 @@ export function DealerOrdersTable({
                     suggestedTotal={
                       Number(o.total_amount) + Number(o.auto_shipping_fee) + Number(o.manual_shipping_fee ?? 0)
                     }
+                    confirmedTotalAmount={o.confirmed_total_amount != null ? Number(o.confirmed_total_amount) : null}
                   />
                 </Td>
               </Tr>
