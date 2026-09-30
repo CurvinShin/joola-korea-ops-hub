@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getProductCategoryReport } from "@/lib/reports/productCategoryReport";
+import { getProductCategoryReport, getSmartstoreCategoryReport } from "@/lib/reports/productCategoryReport";
 import { ProductCategoryReportView } from "@/components/sales/ProductCategoryReportView";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 
@@ -18,7 +18,10 @@ export default async function PublicProductCategoryReportPage({ params }: { para
   }
 
   const supabase = createAdminClient();
-  const report = await getProductCategoryReport(supabase);
+  const [report, smartstoreReport] = await Promise.all([
+    getProductCategoryReport(supabase),
+    getSmartstoreCategoryReport(supabase),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl space-y-6 bg-slate-50 px-4 py-8 sm:px-8">
@@ -33,7 +36,7 @@ export default async function PublicProductCategoryReportPage({ params }: { para
         <RefreshButton />
       </div>
 
-      <ProductCategoryReportView report={report} />
+      <ProductCategoryReportView report={report} smartstoreReport={smartstoreReport} />
 
       <p className="pt-2 text-center text-[11px] text-slate-400">
         이 페이지는 비공개 링크로만 열람 가능합니다 · 외부 공유 시 주의해주세요

@@ -79,7 +79,9 @@ export default async function DashboardPage() {
         <KpiCard
           label="이번 달 누적 매출"
           value={currency(monthSalesTotal)}
-          hint={pctOfTarget !== null ? `목표 ${currency(target!)} 대비 ${pctOfTarget}%` : "이번 달 목표가 설정되지 않았습니다"}
+          hint={`딜러 ${currency(dealerMonthTotal)} · 스마트스토어 ${currency(smartstoreMonthTotal)}${
+            pctOfTarget !== null ? ` · 목표 대비 ${pctOfTarget}%` : ""
+          }`}
         />
         <KpiCard label="미완료 작업" value={String(pendingTasks?.length ?? 0)} />
       </div>

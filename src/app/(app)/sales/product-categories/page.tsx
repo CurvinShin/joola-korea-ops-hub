@@ -1,13 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
-import { getProductCategoryReport } from "@/lib/reports/productCategoryReport";
+import { getProductCategoryReport, getSmartstoreCategoryReport } from "@/lib/reports/productCategoryReport";
 import { ProductCategoryReportView } from "@/components/sales/ProductCategoryReportView";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { SmartstoreUploadForm } from "@/components/sales/SmartstoreUploadForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductCategoriesPage() {
   const supabase = createClient();
-  const report = await getProductCategoryReport(supabase);
+  const [report, smartstoreReport] = await Promise.all([
+    getProductCategoryReport(supabase),
+    getSmartstoreCategoryReport(supabase),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -22,7 +27,16 @@ export default async function ProductCategoriesPage() {
         <RefreshButton />
       </div>
 
-      <ProductCategoryReportView report={report} />
+      <Card>
+        <CardHeader>
+          <CardTitle>스마트스토어 주문조회 최신화</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SmartstoreUploadForm />
+        </CardContent>
+      </Card>
+
+      <ProductCategoryReportView report={report} smartstoreReport={smartstoreReport} />
     </div>
   );
 }
