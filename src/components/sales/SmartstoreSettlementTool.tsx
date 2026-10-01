@@ -22,11 +22,11 @@ export interface ProductCandidate {
   discontinued: boolean;
 }
 
-function AddSubmitButton() {
+function AddSubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "저장 중..." : "매핑 저장"}
+      {pending ? "저장 중..." : editing ? "수정 저장" : "매핑 저장"}
     </Button>
   );
 }
@@ -81,6 +81,13 @@ export function SmartstoreSettlementTool({
   const [sku, setSku] = useState("");
   const [englishName, setEnglishName] = useState("");
 
+  // null이면 "새 매핑 추가" 모드, 값이 있으면(`${product_no}::${option_info}`)
+  // 기존 매핑을 수정 중이라는 뜻. upsert가 (product_no, option_info)
+  // 복합키로 덮어쓰기 때문에, 수정 모드에서는 이 두 필드를 잠가서(readOnly)
+  // 실수로 다른 키의 새 행이 생기는 걸 막는다 — SKU/영문명/상품명만 바꿀 수
+  // 있다. 키 자체를 바꾸고 싶으면 삭제 후 새로 추가하면 된다.
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+
   useEffect(() => {
     if (genState && genState.ok) {
       downloadBase64Xlsx(genState.filename, genState.fileBase64);
@@ -95,6 +102,7 @@ export function SmartstoreSettlementTool({
       setProductName("");
       setSku("");
       setEnglishName("");
+      setEditingKey(null);
     }
   }, [addState]);
 
@@ -117,6 +125,46 @@ export function SmartstoreSettlementTool({
     setSku(c.sku);
     setEnglishName(c.name);
   }
+
+  function handleEditMapping(row: SkuMapRow) {
+    setProductNo(row.product_no);
+    setOptionInfo(row.option_info);
+    setProductName(row.product_name === "(미입력)" ? "" : row.product_name);
+    setSku(row.sku);
+    setEnglishName(row.english_name);
+    setEditingKey(`${row.product_no}::${row.option_info}`);
+    addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function cancelEditMapping() {
+    addFormRef.current?.reset();
+    setProductNo("");
+    setOptionInfo("");
+    setProductName("");
+    setSku("");
+    setEnglishName("");
+    setEditingKey(null);
+  }
+
+  // genState.unmapped은 "정산 파일 생성" 버튼을 눌렀던 시점의 스냅샷이라, 그
+  // 뒤에 매핑을 추가해도 목록 자체는 그대로 남아 어디까지 했는지 알기 어렵다.
+  // skuMapRows는 매핑 추가/삭제 때마다 서버에서 새로 내려오므로, 이걸로 각
+  // 항목이 이미 매핑됐는지 다시 확인해 체크 표시를 해준다 — 재생성 전에도
+  // 진행 상황을 바로 알 수 있게.
+  const mappedKeySet = useMemo(
+    () => new Set(skuMapRows.map((r) => `${r.product_no}::${r.option_info}`)),
+    [skuMapRows]
+  );
+  const unmappedWithStatus = useMemo(() => {
+    if (!genState || genState.ok || !genState.unmapped) return [];
+    return genState.unmapped
+      .map((u) => ({
+        ...u,
+        resolved: !!u.product_no && mappedKeySet.has(`${u.product_no}::${u.option_info}`),
+      }))
+      .sort((a, b) => Number(a.resolved) - Number(b.resolved));
+  }, [genState, mappedKeySet]);
+  const resolvedCount = unmappedWithStatus.filter((u) => u.resolved).length;
 
   async function handleDelete(productNoToDelete: string, optionInfoToDelete: string) {
     const key = `${productNoToDelete}::${optionInfoToDelete}`;
@@ -145,6 +193,14 @@ export function SmartstoreSettlementTool({
           </p>
 
           <form ref={addFormRef} action={addFormAction} className="space-y-2 border-b border-slate-100 pb-4">
+            {editingKey && (
+              <div className="flex items-center justify-between rounded-md bg-brand-50 px-3 py-1.5 text-xs text-brand-700">
+                <span>✏️ 기존 매핑 수정 중 — 상품번호/옵션정보는 고정되고, 저장하면 SKU/영문명이 덮어써집니다</span>
+                <button type="button" onClick={cancelEditMapping} className="font-medium underline">
+                  취소
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <label className="block text-xs text-slate-500">상품번호</label>
@@ -154,6 +210,7 @@ export function SmartstoreSettlementTool({
                   onChange={(e) => setProductNo(e.target.value)}
                   placeholder="예: 12345678901"
                   className="w-40"
+                  readOnly={!!editingKey}
                   required
                 />
               </div>
@@ -165,6 +222,7 @@ export function SmartstoreSettlementTool({
                   onChange={(e) => setOptionInfo(e.target.value)}
                   placeholder="예: 컬러: Blaze Red"
                   className="w-44"
+                  readOnly={!!editingKey}
                 />
               </div>
               <div>
@@ -199,7 +257,7 @@ export function SmartstoreSettlementTool({
                   required
                 />
               </div>
-              <AddSubmitButton />
+              <AddSubmitButton editing={!!editingKey} />
             </div>
 
             {candidates.length > 0 && (
@@ -248,15 +306,20 @@ export function SmartstoreSettlementTool({
                     <Td className="font-mono">{row.sku}</Td>
                     <Td>{row.english_name}</Td>
                     <Td className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={deleting === `${row.product_no}::${row.option_info}`}
-                        onClick={() => handleDelete(row.product_no, row.option_info)}
-                      >
-                        삭제
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button type="button" variant="secondary" size="sm" onClick={() => handleEditMapping(row)}>
+                          수정
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={deleting === `${row.product_no}::${row.option_info}`}
+                          onClick={() => handleDelete(row.product_no, row.option_info)}
+                        >
+                          삭제
+                        </Button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -310,38 +373,52 @@ export function SmartstoreSettlementTool({
                 </ul>
               )}
 
-              {genState.unmapped && genState.unmapped.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {genState.unmapped.map((u) => (
-                    <li
-                      key={`${u.product_no ?? u.product_name}::${u.option_info}`}
-                      className="flex items-center justify-between gap-2 text-xs"
-                    >
-                      <span>
-                        {u.product_name}
-                        {u.option_info ? ` (${u.option_info})` : ""} ({u.count}건)
-                        {u.product_no ? ` — 상품번호 ${u.product_no}` : " — 상품번호 없음"}
-                      </span>
-                      {u.product_no && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            setProductNo(u.product_no!);
-                            setOptionInfo(u.option_info);
-                            setProductName(u.product_name);
-                            setSku("");
-                            setEnglishName("");
-                            addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                          }}
-                        >
-                          매핑 추가
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+              {unmappedWithStatus.length > 0 && (
+                <div className="mt-2">
+                  <p className="mb-1.5 text-xs font-medium text-amber-700">
+                    매핑 진행: {resolvedCount} / {unmappedWithStatus.length}건 완료
+                    {resolvedCount > 0 && resolvedCount < unmappedWithStatus.length
+                      ? " — 나머지도 매핑한 뒤 파일을 다시 올려 재생성해주세요"
+                      : resolvedCount === unmappedWithStatus.length
+                        ? " — 전부 매핑됐습니다. 파일을 다시 올려 재생성해주세요"
+                        : ""}
+                  </p>
+                  <ul className="space-y-1">
+                    {unmappedWithStatus.map((u) => (
+                      <li
+                        key={`${u.product_no ?? u.product_name}::${u.option_info}`}
+                        className={`flex items-center justify-between gap-2 text-xs ${
+                          u.resolved ? "text-emerald-700 line-through opacity-60" : ""
+                        }`}
+                      >
+                        <span>
+                          {u.resolved && "✓ "}
+                          {u.product_name}
+                          {u.option_info ? ` (${u.option_info})` : ""} ({u.count}건)
+                          {u.product_no ? ` — 상품번호 ${u.product_no}` : " — 상품번호 없음"}
+                        </span>
+                        {u.product_no && !u.resolved && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setProductNo(u.product_no!);
+                              setOptionInfo(u.option_info);
+                              setProductName(u.product_name);
+                              setSku("");
+                              setEnglishName("");
+                              setEditingKey(null);
+                              addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }}
+                          >
+                            매핑 추가
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
