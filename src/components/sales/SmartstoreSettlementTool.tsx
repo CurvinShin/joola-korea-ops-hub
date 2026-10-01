@@ -56,7 +56,9 @@ function downloadBase64Xlsx(filename: string, base64: string) {
 export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow[] }) {
   const [addState, addFormAction] = useFormState<UpsertSkuMapResult | null, FormData>(upsertSmartstoreSkuMap, null);
   const [genState, genFormAction] = useFormState<SettlementResult | null, FormData>(generateSmartstoreSettlement, null);
-  const [prefill, setPrefill] = useState<{ product_no: string; product_name: string } | null>(null);
+  const [prefill, setPrefill] = useState<{ product_no: string; option_info: string; product_name: string } | null>(
+    null
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const addFormRef = useRef<HTMLFormElement>(null);
 
@@ -73,10 +75,12 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
     }
   }, [addState]);
 
-  async function handleDelete(productNo: string) {
-    if (!confirm(`매핑 삭제: ${productNo}. 되돌릴 수 없습니다. 계속할까요?`)) return;
-    setDeleting(productNo);
-    await deleteSmartstoreSkuMap(productNo);
+  async function handleDelete(productNo: string, optionInfo: string) {
+    const key = `${productNo}::${optionInfo}`;
+    if (!confirm(`매핑 삭제: ${productNo}${optionInfo ? ` (${optionInfo})` : ""}. 되돌릴 수 없습니다. 계속할까요?`))
+      return;
+    setDeleting(key);
+    await deleteSmartstoreSkuMap(productNo, optionInfo);
     setDeleting(null);
   }
 
@@ -89,7 +93,9 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
             네이버에 등록된 한글 상품명(상품번호 기준)이 어떤 SKU/영문 제품명인지 한 번만 등록해두면, 그 다음부터는
-            정산 파일 생성 시 자동으로 채워집니다. 신규 상품이 나올 때만 추가하면 됩니다.
+            정산 파일 생성 시 자동으로 채워집니다. 신규 상품이 나올 때만 추가하면 됩니다. &ldquo;[3 Colors]&rdquo;처럼
+            옵션(색상 등)이 여러 개인 상품은 같은 상품번호라도 옵션마다 SKU가 다르므로, 옵션정보까지 함께
+            등록해주세요(예: &ldquo;컬러: Blaze Red&rdquo;) — 옵션이 없는 단일 상품은 비워두면 됩니다.
           </p>
 
           <form ref={addFormRef} action={addFormAction} className="flex flex-wrap items-end gap-2 border-b border-slate-100 pb-4">
@@ -102,6 +108,16 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
                 placeholder="예: 12345678901"
                 className="w-40"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500">옵션정보 (색상 등, 없으면 비워두기)</label>
+              <Input
+                name="option_info"
+                defaultValue={prefill?.option_info ?? ""}
+                key={prefill?.option_info ?? "empty-opt"}
+                placeholder="예: 컬러: Blaze Red"
+                className="w-44"
               />
             </div>
             <div>
@@ -131,6 +147,7 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
               <Thead>
                 <Tr>
                   <Th>상품번호</Th>
+                  <Th>옵션정보</Th>
                   <Th>네이버 상품명</Th>
                   <Th>SKU</Th>
                   <Th>영문 제품명</Th>
@@ -139,8 +156,9 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
               </Thead>
               <tbody>
                 {skuMapRows.map((row) => (
-                  <Tr key={row.product_no}>
+                  <Tr key={`${row.product_no}::${row.option_info}`}>
                     <Td className="font-mono text-xs">{row.product_no}</Td>
+                    <Td className="text-xs text-slate-500">{row.option_info || "—"}</Td>
                     <Td className="text-xs text-slate-500">{row.product_name}</Td>
                     <Td className="font-mono">{row.sku}</Td>
                     <Td>{row.english_name}</Td>
@@ -149,8 +167,8 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
                         type="button"
                         variant="ghost"
                         size="sm"
-                        disabled={deleting === row.product_no}
-                        onClick={() => handleDelete(row.product_no)}
+                        disabled={deleting === `${row.product_no}::${row.option_info}`}
+                        onClick={() => handleDelete(row.product_no, row.option_info)}
                       >
                         삭제
                       </Button>
@@ -210,9 +228,14 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
               {genState.unmapped && genState.unmapped.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {genState.unmapped.map((u) => (
-                    <li key={u.product_no ?? u.product_name} className="flex items-center justify-between gap-2 text-xs">
+                    <li
+                      key={`${u.product_no ?? u.product_name}::${u.option_info}`}
+                      className="flex items-center justify-between gap-2 text-xs"
+                    >
                       <span>
-                        {u.product_name} ({u.count}건){u.product_no ? ` — 상품번호 ${u.product_no}` : " — 상품번호 없음"}
+                        {u.product_name}
+                        {u.option_info ? ` (${u.option_info})` : ""} ({u.count}건)
+                        {u.product_no ? ` — 상품번호 ${u.product_no}` : " — 상품번호 없음"}
                       </span>
                       {u.product_no && (
                         <Button
@@ -220,7 +243,7 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
                           variant="secondary"
                           size="sm"
                           onClick={() => {
-                            setPrefill({ product_no: u.product_no!, product_name: u.product_name });
+                            setPrefill({ product_no: u.product_no!, option_info: u.option_info, product_name: u.product_name });
                             addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                           }}
                         >

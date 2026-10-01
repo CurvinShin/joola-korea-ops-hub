@@ -7,11 +7,17 @@ import { createClient } from "@/lib/supabase/server";
 import { parseSettleCaseByCase } from "@/lib/reports/parseSettleCaseByCase";
 
 // ---------------------------------------------------------------------------
-// SKU 매핑(product_no -> sku/영문명) 관리
+// SKU 매핑((product_no, option_info) -> sku/영문명) 관리
 // ---------------------------------------------------------------------------
+//
+// "[3 Colors]"처럼 옵션(색상 등)이 여러 개인 상품은 같은 상품번호라도
+// 옵션마다 실제 SKU가 다르다 — 그래서 상품번호만으로는 매핑이 안 되고,
+// 주문조회의 옵션정보(예: "컬러: Blaze Red")까지 같이 키로 써야 한다. 옵션이
+// 없는 단일 상품은 option_info를 빈 문자열로 다룬다.
 
 export interface SkuMapRow {
   product_no: string;
+  option_info: string;
   product_name: string;
   sku: string;
   english_name: string;
@@ -25,6 +31,7 @@ export async function upsertSmartstoreSkuMap(
   formData: FormData
 ): Promise<UpsertSkuMapResult> {
   const productNo = String(formData.get("product_no") || "").trim();
+  const optionInfo = String(formData.get("option_info") || "").trim();
   const productName = String(formData.get("product_name") || "").trim();
   const sku = String(formData.get("sku") || "").trim();
   const englishName = String(formData.get("english_name") || "").trim();
@@ -37,12 +44,13 @@ export async function upsertSmartstoreSkuMap(
   const { error } = await supabase.from("smartstore_sku_map").upsert(
     {
       product_no: productNo,
+      option_info: optionInfo,
       product_name: productName || "(미입력)",
       sku,
       english_name: englishName,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "product_no" }
+    { onConflict: "product_no,option_info" }
   );
   if (error) return { ok: false, error: error.message };
 
@@ -50,9 +58,13 @@ export async function upsertSmartstoreSkuMap(
   return { ok: true };
 }
 
-export async function deleteSmartstoreSkuMap(productNo: string): Promise<UpsertSkuMapResult> {
+export async function deleteSmartstoreSkuMap(productNo: string, optionInfo: string): Promise<UpsertSkuMapResult> {
   const supabase = createClient();
-  const { error } = await supabase.from("smartstore_sku_map").delete().eq("product_no", productNo);
+  const { error } = await supabase
+    .from("smartstore_sku_map")
+    .delete()
+    .eq("product_no", productNo)
+    .eq("option_info", optionInfo);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/sales/smartstore-settlement");
   return { ok: true };
@@ -64,6 +76,7 @@ export async function deleteSmartstoreSkuMap(productNo: string): Promise<UpsertS
 
 export interface UnmappedProduct {
   product_no: string | null;
+  option_info: string;
   product_name: string;
   count: number;
 }
@@ -118,6 +131,12 @@ function isNonProductRow(productName: string): boolean {
   return productName.includes("배송비");
 }
 
+// smartstore_sku_map의 복합키를 한 문자열로 합쳐서 Map 키로 쓴다. option_info가
+// null이면(옵션 없는 단일 상품) 빈 문자열로 정규화 — DB 쪽도 동일하게 ''을 쓴다.
+function mapKey(productNo: string, optionInfo: string | null): string {
+  return `${productNo}::${optionInfo ?? ""}`;
+}
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -168,16 +187,22 @@ export async function generateSmartstoreSettlement(
 
     const supabase = createClient();
 
-    // 1) product_order_no로 smartstore_order_items에서 수량/상품번호 조회
-    //    (해당 월의 "주문조회" 파일을 /sales/product-categories에서 먼저
+    // 1) product_order_no로 smartstore_order_items에서 수량/상품번호/옵션정보
+    //    조회 (해당 월의 "주문조회" 파일을 제품군 분석 페이지에서 먼저
     //    업로드해둔 상태여야 한다 — 이 테이블이 그 데이터의 원천이다).
     const orderNos = Array.from(new Set(productRows.map((r) => r.product_order_no)));
-    type OrderItemLite = { product_order_no: string; product_no: string | null; product_name: string; quantity: number };
+    type OrderItemLite = {
+      product_order_no: string;
+      product_no: string | null;
+      product_name: string;
+      option_info: string | null;
+      quantity: number;
+    };
     const orderItemByOrderNo = new Map<string, OrderItemLite>();
     for (const batch of chunk(orderNos, 300)) {
       const { data, error } = await supabase
         .from("smartstore_order_items")
-        .select("product_order_no, product_no, product_name, quantity")
+        .select("product_order_no, product_no, product_name, option_info, quantity")
         .in("product_order_no", batch);
       if (error) return { ok: false, error: `주문 데이터 조회 실패: ${error.message}` };
       for (const row of (data ?? []) as OrderItemLite[]) {
@@ -199,7 +224,8 @@ export async function generateSmartstoreSettlement(
       };
     }
 
-    // 2) product_no로 smartstore_sku_map에서 SKU/영문명 조회
+    // 2) (product_no, option_info)로 smartstore_sku_map에서 SKU/영문명 조회 —
+    //    옵션(색상 등)별로 실제 SKU가 다를 수 있어 상품번호만으로는 안 된다.
     const productNos = Array.from(
       new Set(Array.from(orderItemByOrderNo.values()).map((o) => o.product_no).filter((v): v is string => !!v))
     );
@@ -208,27 +234,34 @@ export async function generateSmartstoreSettlement(
       const { data, error } = await supabase.from("smartstore_sku_map").select("*").in("product_no", batch);
       if (error) return { ok: false, error: `SKU 매핑 조회 실패: ${error.message}` };
       for (const row of (data ?? []) as SkuMapRow[]) {
-        skuMap.set(row.product_no, row);
+        skuMap.set(mapKey(row.product_no, row.option_info), row);
       }
     }
 
     const unmappedCount = new Map<string, UnmappedProduct>();
     for (const r of productRows) {
       const item = orderItemByOrderNo.get(r.product_order_no)!;
-      const key = item.product_no ?? `__noNo__:${item.product_name}`;
-      if (!item.product_no || !skuMap.has(item.product_no)) {
+      const key = item.product_no
+        ? mapKey(item.product_no, item.option_info)
+        : `__noNo__:${item.product_name}::${item.option_info ?? ""}`;
+      if (!item.product_no || !skuMap.has(key)) {
         const existing = unmappedCount.get(key);
         if (existing) {
           existing.count += 1;
         } else {
-          unmappedCount.set(key, { product_no: item.product_no, product_name: item.product_name, count: 1 });
+          unmappedCount.set(key, {
+            product_no: item.product_no,
+            option_info: item.option_info ?? "",
+            product_name: item.product_name,
+            count: 1,
+          });
         }
       }
     }
     if (unmappedCount.size > 0) {
       return {
         ok: false,
-        error: `${unmappedCount.size}개 상품이 아직 SKU 매핑에 없습니다. 아래에서 매핑을 추가한 뒤 다시 시도해주세요.`,
+        error: `${unmappedCount.size}개 상품(옵션 포함)이 아직 SKU 매핑에 없습니다. 아래에서 매핑을 추가한 뒤 다시 시도해주세요.`,
         unmapped: Array.from(unmappedCount.values()),
       };
     }
@@ -238,7 +271,7 @@ export async function generateSmartstoreSettlement(
     const aoa: (string | number | null)[][] = [Array.from(OUTPUT_HEADER)];
     for (const r of productRows) {
       const item = orderItemByOrderNo.get(r.product_order_no)!;
-      const skuRow = item.product_no ? skuMap.get(item.product_no) : undefined;
+      const skuRow = item.product_no ? skuMap.get(mapKey(item.product_no, item.option_info)) : undefined;
       const skuDisplay = skuRow ? `${skuRow.sku} ${skuRow.english_name}` : "";
       aoa.push([
         r.no,
