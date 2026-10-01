@@ -236,7 +236,9 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
 
           {genState && genState.ok && (
             <p className="text-sm text-emerald-700">
-              {genState.filename} 생성 완료 ({genState.summary.matchedRows}건) — 다운로드가 바로 시작됩니다.
+              {genState.filename} 생성 완료 ({genState.summary.matchedRows}건
+              {genState.summary.excludedRows > 0 && `, 배송비 등 ${genState.summary.excludedRows}건 제외`}) — 다운로드가
+              바로 시작됩니다.
             </p>
           )}
         </CardContent>

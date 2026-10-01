@@ -78,7 +78,7 @@ export type SettlementResult =
       ok: true;
       filename: string;
       fileBase64: string;
-      summary: { totalRows: number; matchedRows: number };
+      summary: { totalRows: number; matchedRows: number; excludedRows: number };
     }
   | {
       ok: false;
@@ -109,6 +109,14 @@ const OUTPUT_HEADER = [
   "정산예정금액",
   "계약번호",
 ] as const;
+
+// SettleCaseByCase에는 실제 상품 판매 행 외에 "기본배송비", "반품배송비",
+// "교환배송비" 같은 배송비 정산 행도 섞여 있다. 이런 행은 상품이 아니라서
+// smartstore_order_items(주문조회 기준)에 애초에 대응하는 행이 없고, 제품별
+// 수량/SKU 집계 목적(Jeff에게 전달하는 자료)에도 필요 없어 자동으로 제외한다.
+function isNonProductRow(productName: string): boolean {
+  return productName.includes("배송비");
+}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -151,12 +159,19 @@ export async function generateSmartstoreSettlement(
       return { ok: false, error: "엑셀에서 읽을 수 있는 정산 행이 없습니다. 'SettleCaseByCase' 형식인지 확인해주세요." };
     }
 
+    // 배송비 등 상품이 아닌 행은 수량/SKU 매칭 대상에서 아예 제외한다.
+    const productRows = parsed.rows.filter((r) => !isNonProductRow(r.product_name));
+    const excludedRows = parsed.rows.length - productRows.length;
+    if (productRows.length === 0) {
+      return { ok: false, error: "배송비 등을 제외하면 남는 상품 판매 행이 없습니다." };
+    }
+
     const supabase = createClient();
 
     // 1) product_order_no로 smartstore_order_items에서 수량/상품번호 조회
     //    (해당 월의 "주문조회" 파일을 /sales/product-categories에서 먼저
     //    업로드해둔 상태여야 한다 — 이 테이블이 그 데이터의 원천이다).
-    const orderNos = Array.from(new Set(parsed.rows.map((r) => r.product_order_no)));
+    const orderNos = Array.from(new Set(productRows.map((r) => r.product_order_no)));
     type OrderItemLite = { product_order_no: string; product_no: string | null; product_name: string; quantity: number };
     const orderItemByOrderNo = new Map<string, OrderItemLite>();
     for (const batch of chunk(orderNos, 300)) {
@@ -171,7 +186,7 @@ export async function generateSmartstoreSettlement(
     }
 
     const missingOrderData: MissingOrderDataRow[] = [];
-    for (const r of parsed.rows) {
+    for (const r of productRows) {
       if (!orderItemByOrderNo.has(r.product_order_no)) {
         missingOrderData.push({ product_order_no: r.product_order_no, product_name: r.product_name });
       }
@@ -198,7 +213,7 @@ export async function generateSmartstoreSettlement(
     }
 
     const unmappedCount = new Map<string, UnmappedProduct>();
-    for (const r of parsed.rows) {
+    for (const r of productRows) {
       const item = orderItemByOrderNo.get(r.product_order_no)!;
       const key = item.product_no ?? `__noNo__:${item.product_name}`;
       if (!item.product_no || !skuMap.has(item.product_no)) {
@@ -218,9 +233,10 @@ export async function generateSmartstoreSettlement(
       };
     }
 
-    // 3) 최종 산출물 조립 (구매자명 컬럼은 애초에 parsed row에 없음)
+    // 3) 최종 산출물 조립 (구매자명 컬럼은 애초에 parsed row에 없고, 배송비
+    // 행은 productRows 필터링 단계에서 이미 제외됨)
     const aoa: (string | number | null)[][] = [Array.from(OUTPUT_HEADER)];
-    for (const r of parsed.rows) {
+    for (const r of productRows) {
       const item = orderItemByOrderNo.get(r.product_order_no)!;
       const skuRow = item.product_no ? skuMap.get(item.product_no) : undefined;
       const skuDisplay = skuRow ? `${skuRow.sku} ${skuRow.english_name}` : "";
@@ -255,7 +271,7 @@ export async function generateSmartstoreSettlement(
 
     // 파일명에 쓸 월 — 결제일(paid_at) 중 가장 많이 등장하는 연-월을 사용.
     const monthCounts = new Map<string, number>();
-    for (const r of parsed.rows) {
+    for (const r of productRows) {
       const ym = r.paid_at?.slice(0, 7);
       if (ym) monthCounts.set(ym, (monthCounts.get(ym) ?? 0) + 1);
     }
@@ -274,7 +290,7 @@ export async function generateSmartstoreSettlement(
       ok: true,
       filename,
       fileBase64: outBuffer.toString("base64"),
-      summary: { totalRows: parsed.rows.length, matchedRows: parsed.rows.length },
+      summary: { totalRows: parsed.rows.length, matchedRows: productRows.length, excludedRows },
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다." };
