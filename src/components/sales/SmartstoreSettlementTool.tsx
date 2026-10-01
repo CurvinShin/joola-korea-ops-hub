@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +14,13 @@ import {
   type UpsertSkuMapResult,
   type SettlementResult,
 } from "@/lib/actions/smartstore-settlement";
+import { extractEnglishKeywords } from "@/lib/reports/koreanProductKeywords";
+
+export interface ProductCandidate {
+  sku: string;
+  name: string;
+  discontinued: boolean;
+}
 
 function AddSubmitButton() {
   const { pending } = useFormStatus();
@@ -53,14 +60,26 @@ function downloadBase64Xlsx(filename: string, base64: string) {
 // 정산 파일(수량/SKU 자동 반영)을 생성하는 화면. 두 기능을 한 페이지에
 // 묶은 이유: 정산 파일 생성이 실패하면(미매핑 상품 존재) 바로 아래에서
 // 매핑을 추가하고 다시 시도할 수 있게 하기 위해서다.
-export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow[] }) {
+export function SmartstoreSettlementTool({
+  skuMapRows,
+  products,
+}: {
+  skuMapRows: SkuMapRow[];
+  products: ProductCandidate[];
+}) {
   const [addState, addFormAction] = useFormState<UpsertSkuMapResult | null, FormData>(upsertSmartstoreSkuMap, null);
   const [genState, genFormAction] = useFormState<SettlementResult | null, FormData>(generateSmartstoreSettlement, null);
-  const [prefill, setPrefill] = useState<{ product_no: string; option_info: string; product_name: string } | null>(
-    null
-  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const addFormRef = useRef<HTMLFormElement>(null);
+
+  // 상품번호/옵션정보/네이버 상품명/SKU/영문명을 모두 제어 상태로 두는 이유:
+  // "매핑 추가" 버튼으로 미매핑 상품 하나를 채워넣을 수도 있고, 후보 상품
+  // 목록에서 클릭하면 SKU/영문명이 자동으로 채워져야 하기 때문.
+  const [productNo, setProductNo] = useState("");
+  const [optionInfo, setOptionInfo] = useState("");
+  const [productName, setProductName] = useState("");
+  const [sku, setSku] = useState("");
+  const [englishName, setEnglishName] = useState("");
 
   useEffect(() => {
     if (genState && genState.ok) {
@@ -71,16 +90,42 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
   useEffect(() => {
     if (addState?.ok) {
       addFormRef.current?.reset();
-      setPrefill(null);
+      setProductNo("");
+      setOptionInfo("");
+      setProductName("");
+      setSku("");
+      setEnglishName("");
     }
   }, [addState]);
 
-  async function handleDelete(productNo: string, optionInfo: string) {
-    const key = `${productNo}::${optionInfo}`;
-    if (!confirm(`매핑 삭제: ${productNo}${optionInfo ? ` (${optionInfo})` : ""}. 되돌릴 수 없습니다. 계속할까요?`))
+  // 네이버 상품명(한글)에서 알려진 선수/라인명 키워드를 뽑아 영문 키워드로
+  // 바꾸고, 그 키워드가 들어간 상품을 후보로 보여준다. 예: "하이페리온"이
+  // 들어간 상품명이면 "Hyperion"이 포함된 카탈로그 상품들을 모두 보여줘서
+  // 고르기만 하면 되게 한다 — 기억이나 재입력이 필요 없다.
+  const candidates = useMemo(() => {
+    if (!productName.trim()) return [];
+    const keywords = extractEnglishKeywords(productName);
+    if (keywords.length === 0) return [];
+    const lowerKeywords = keywords.map((k) => k.toLowerCase());
+    return products
+      .filter((p) => lowerKeywords.some((k) => p.name.toLowerCase().includes(k)))
+      .sort((a, b) => Number(a.discontinued) - Number(b.discontinued) || a.name.localeCompare(b.name))
+      .slice(0, 20);
+  }, [productName, products]);
+
+  function applyCandidate(c: ProductCandidate) {
+    setSku(c.sku);
+    setEnglishName(c.name);
+  }
+
+  async function handleDelete(productNoToDelete: string, optionInfoToDelete: string) {
+    const key = `${productNoToDelete}::${optionInfoToDelete}`;
+    if (
+      !confirm(`매핑 삭제: ${productNoToDelete}${optionInfoToDelete ? ` (${optionInfoToDelete})` : ""}. 되돌릴 수 없습니다. 계속할까요?`)
+    )
       return;
     setDeleting(key);
-    await deleteSmartstoreSkuMap(productNo, optionInfo);
+    await deleteSmartstoreSkuMap(productNoToDelete, optionInfoToDelete);
     setDeleting(null);
   }
 
@@ -93,52 +138,92 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
             네이버에 등록된 한글 상품명(상품번호 기준)이 어떤 SKU/영문 제품명인지 한 번만 등록해두면, 그 다음부터는
-            정산 파일 생성 시 자동으로 채워집니다. 신규 상품이 나올 때만 추가하면 됩니다. &ldquo;[3 Colors]&rdquo;처럼
-            옵션(색상 등)이 여러 개인 상품은 같은 상품번호라도 옵션마다 SKU가 다르므로, 옵션정보까지 함께
-            등록해주세요(예: &ldquo;컬러: Blaze Red&rdquo;) — 옵션이 없는 단일 상품은 비워두면 됩니다.
+            정산 파일 생성 시 자동으로 채워집니다. 네이버 상품명을 입력하면 아래에 후보 상품이 뜨니, 맞는 것을
+            클릭하면 SKU/영문명이 자동으로 채워집니다. &ldquo;[3 Colors]&rdquo;처럼 옵션(색상 등)이 여러 개인 상품은
+            같은 상품번호라도 옵션마다 SKU가 다르므로, 옵션정보까지 함께 등록해주세요(예: &ldquo;컬러: Blaze
+            Red&rdquo;) — 옵션이 없는 단일 상품은 비워두면 됩니다.
           </p>
 
-          <form ref={addFormRef} action={addFormAction} className="flex flex-wrap items-end gap-2 border-b border-slate-100 pb-4">
-            <div>
-              <label className="block text-xs text-slate-500">상품번호</label>
-              <Input
-                name="product_no"
-                defaultValue={prefill?.product_no ?? ""}
-                key={prefill?.product_no ?? "empty-no"}
-                placeholder="예: 12345678901"
-                className="w-40"
-                required
-              />
+          <form ref={addFormRef} action={addFormAction} className="space-y-2 border-b border-slate-100 pb-4">
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label className="block text-xs text-slate-500">상품번호</label>
+                <Input
+                  name="product_no"
+                  value={productNo}
+                  onChange={(e) => setProductNo(e.target.value)}
+                  placeholder="예: 12345678901"
+                  className="w-40"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500">옵션정보 (색상 등, 없으면 비워두기)</label>
+                <Input
+                  name="option_info"
+                  value={optionInfo}
+                  onChange={(e) => setOptionInfo(e.target.value)}
+                  placeholder="예: 컬러: Blaze Red"
+                  className="w-44"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500">네이버 상품명 (후보 검색용)</label>
+                <Input
+                  name="product_name"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="예: 율라 JOOLA 프로5 애거시..."
+                  className="w-64"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500">SKU</label>
+                <Input
+                  name="sku"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  placeholder="예: 600592"
+                  className="w-28"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500">영문 제품명</label>
+                <Input
+                  name="english_name"
+                  value={englishName}
+                  onChange={(e) => setEnglishName(e.target.value)}
+                  placeholder="예: JOOLA Agassi Pro V ... (Global)"
+                  className="w-72"
+                  required
+                />
+              </div>
+              <AddSubmitButton />
             </div>
-            <div>
-              <label className="block text-xs text-slate-500">옵션정보 (색상 등, 없으면 비워두기)</label>
-              <Input
-                name="option_info"
-                defaultValue={prefill?.option_info ?? ""}
-                key={prefill?.option_info ?? "empty-opt"}
-                placeholder="예: 컬러: Blaze Red"
-                className="w-44"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500">네이버 상품명 (참고용)</label>
-              <Input
-                name="product_name"
-                defaultValue={prefill?.product_name ?? ""}
-                key={prefill?.product_name ?? "empty-name"}
-                placeholder="예: 율라 JOOLA 프로5..."
-                className="w-56"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500">SKU</label>
-              <Input name="sku" placeholder="예: 600592" className="w-28" required />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500">영문 제품명</label>
-              <Input name="english_name" placeholder="예: JOOLA Agassi Pro V ... (Global)" className="w-72" required />
-            </div>
-            <AddSubmitButton />
+
+            {candidates.length > 0 && (
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                <p className="mb-1.5 text-[11px] text-slate-500">
+                  &ldquo;{productName}&rdquo;에서 찾은 후보 상품 — 클릭하면 SKU/영문명이 채워집니다
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {candidates.map((c) => (
+                    <button
+                      key={c.sku}
+                      type="button"
+                      onClick={() => applyCandidate(c)}
+                      className={`rounded-md border px-2 py-1 text-left text-xs hover:bg-brand-50 ${
+                        sku === c.sku ? "border-brand-400 bg-brand-50 text-brand-700" : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                    >
+                      <span className="font-mono">{c.sku}</span> — {c.name}
+                      {c.discontinued && <span className="ml-1 text-slate-400">(단종)</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </form>
           {addState && !addState.ok && <p className="text-xs text-red-600">{addState.error}</p>}
 
@@ -243,7 +328,11 @@ export function SmartstoreSettlementTool({ skuMapRows }: { skuMapRows: SkuMapRow
                           variant="secondary"
                           size="sm"
                           onClick={() => {
-                            setPrefill({ product_no: u.product_no!, option_info: u.option_info, product_name: u.product_name });
+                            setProductNo(u.product_no!);
+                            setOptionInfo(u.option_info);
+                            setProductName(u.product_name);
+                            setSku("");
+                            setEnglishName("");
                             addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                           }}
                         >

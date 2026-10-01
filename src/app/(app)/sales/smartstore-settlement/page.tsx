@@ -1,18 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { SmartstoreSettlementTool } from "@/components/sales/SmartstoreSettlementTool";
+import { SmartstoreSettlementTool, type ProductCandidate } from "@/components/sales/SmartstoreSettlementTool";
 import type { SkuMapRow } from "@/lib/actions/smartstore-settlement";
 
 export const dynamic = "force-dynamic";
 
 export default async function SmartstoreSettlementPage() {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("smartstore_sku_map")
-    .select("*")
-    .order("product_name", { ascending: true });
+  const [{ data, error }, { data: productRows }] = await Promise.all([
+    supabase.from("smartstore_sku_map").select("*").order("product_name", { ascending: true }),
+    // SKU 매핑 추가 시 "후보 상품" 목록을 보여주는 데 쓴다 — 기존 products
+    // 테이블(딜러 카탈로그 등에 이미 쓰이는 SKU/영문명의 원천)을 그대로 재사용.
+    supabase.from("products").select("sku, name, discontinued").order("name", { ascending: true }),
+  ]);
 
   const skuMapRows = (data ?? []) as SkuMapRow[];
+  const products = (productRows ?? []) as ProductCandidate[];
 
   return (
     <div className="space-y-6">
@@ -33,7 +36,7 @@ export default async function SmartstoreSettlementPage() {
         </Card>
       )}
 
-      <SmartstoreSettlementTool skuMapRows={skuMapRows} />
+      <SmartstoreSettlementTool skuMapRows={skuMapRows} products={products} />
     </div>
   );
 }
