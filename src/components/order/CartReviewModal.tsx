@@ -51,14 +51,24 @@ function CartLineQuantityInput({
 
 export function CartReviewModal() {
   const router = useRouter();
-  const { items, discountRate, isOpen, close, updateQuantity, removeItem, clear, editingOrderId, editingOrderLabel } =
-    useCart();
+  const {
+    items,
+    discountRate,
+    promoByProduct,
+    isOpen,
+    close,
+    updateQuantity,
+    removeItem,
+    clear,
+    editingOrderId,
+    editingOrderLabel,
+  } = useCart();
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   if (!isOpen) return null;
 
-  const { lines, subtotal, vat, estimatedTotal } = calcCartTotals(items, discountRate);
+  const { lines, subtotal, vat, estimatedTotal } = calcCartTotals(items, discountRate, promoByProduct);
 
   function handleSubmit() {
     const wasEditingOrderId = editingOrderId;
@@ -120,6 +130,11 @@ export function CartReviewModal() {
                   {line.isDemo && (
                     <span className="ml-1.5 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
                       데모구매
+                    </span>
+                  )}
+                  {!line.isDemo && promoByProduct[line.productId] && (
+                    <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                      프로모션가
                     </span>
                   )}
                 </p>

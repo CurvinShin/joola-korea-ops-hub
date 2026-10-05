@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { CartProvider, useCart, type CartItem } from "@/components/order/CartContext";
 import { CartBar } from "@/components/order/CartBar";
 import { CartReviewModal } from "@/components/order/CartReviewModal";
 import { CatalogBrowser } from "@/components/order/CatalogBrowser";
+import { buildPromoByProduct, type DealerPromo } from "@/lib/utils/promo-pricing";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 
 export interface EditOrderPrefill {
@@ -35,16 +36,19 @@ export function DealerOrderWorkspace({
   catalog,
   discountRate,
   editOrder,
+  promos = [],
 }: {
   catalog: DealerCatalogRow[];
   discountRate: number;
   editOrder?: EditOrderPrefill | null;
+  promos?: DealerPromo[];
 }) {
+  const promoByProduct = useMemo(() => buildPromoByProduct(promos), [promos]);
   return (
-    <CartProvider discountRate={discountRate}>
+    <CartProvider discountRate={discountRate} promoByProduct={promoByProduct}>
       {editOrder && <EditOrderBootstrap editOrder={editOrder} />}
       <CartBar />
-      <CatalogBrowser catalog={catalog} discountRate={discountRate} />
+      <CatalogBrowser catalog={catalog} discountRate={discountRate} promos={promos} />
       <CartReviewModal />
     </CartProvider>
   );

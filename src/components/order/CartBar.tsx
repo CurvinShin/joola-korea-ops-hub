@@ -7,10 +7,10 @@ const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
 
 export function CartBar() {
-  const { items, discountRate, open, editingOrderId } = useCart();
+  const { items, discountRate, promoByProduct, open, editingOrderId } = useCart();
   if (items.length === 0) return null;
 
-  const { estimatedTotal } = calcCartTotals(items, discountRate);
+  const { estimatedTotal } = calcCartTotals(items, discountRate, promoByProduct);
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (

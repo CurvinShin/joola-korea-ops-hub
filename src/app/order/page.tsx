@@ -6,6 +6,7 @@ import type { DealerCatalogRow } from "@/lib/types/database.types";
 import type { CartItem } from "@/components/order/CartContext";
 import type { EditOrderPrefill } from "@/components/order/DealerOrderWorkspace";
 import { NoticeBanner } from "@/components/notices/NoticeBanner";
+import type { DealerPromo } from "@/lib/utils/promo-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function OrderPage({
     );
   }
 
-  const [{ data: dealer }, { data: catalog }, { data: orders }] = await Promise.all([
+  const [{ data: dealer }, { data: catalog }, { data: orders }, { data: promoRows }] = await Promise.all([
     supabase.from("dealers").select("id, name, discount_rate").eq("id", profile.dealer_id).single(),
     supabase.from("dealer_catalog").select("*").order("name"),
     supabase
@@ -46,7 +47,27 @@ export default async function OrderPage({
       .eq("dealer_id", profile.dealer_id)
       .order("order_date", { ascending: false })
       .limit(20),
+    // 딜러에게는 RLS가 "활성 + 오늘이 기간 안"인 프로모션만 돌려준다 — 예정/종료된
+    // 건 여기서 따로 거르지 않아도 안 보인다.
+    supabase
+      .from("product_promotions")
+      .select(
+        "id, name, promo_group, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on, product_promotion_items(product_id)"
+      )
+      .order("starts_on"),
   ]);
+
+  const promos: DealerPromo[] = ((promoRows ?? []) as any[]).map((r) => ({
+    id: r.id,
+    name: r.name,
+    promoGroup: r.promo_group,
+    promoPrice: Number(r.promo_price),
+    discountRatePercent: Number(r.discount_rate_percent),
+    maxQtyPerDealer: r.max_qty_per_dealer,
+    startsOn: r.starts_on,
+    endsOn: r.ends_on,
+    productIds: (r.product_promotion_items ?? []).map((i: { product_id: string }) => i.product_id),
+  }));
 
   const discountRate = Number(dealer?.discount_rate ?? 0);
   const catalogRows = (catalog ?? []) as DealerCatalogRow[];
@@ -127,7 +148,12 @@ export default async function OrderPage({
         </CardHeader>
         <CardContent>
           {catalogRows.length > 0 ? (
-            <DealerOrderWorkspace catalog={catalogRows} discountRate={discountRate} editOrder={editOrder} />
+            <DealerOrderWorkspace
+              catalog={catalogRows}
+              discountRate={discountRate}
+              editOrder={editOrder}
+              promos={promos}
+            />
           ) : (
             <p className="py-8 text-center text-sm text-slate-400">등록된 제품이 없습니다.</p>
           )}

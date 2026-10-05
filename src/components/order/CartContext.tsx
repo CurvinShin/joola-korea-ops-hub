@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 import { calcDealerUnitPrice } from "@/lib/utils/pricing";
+import { promoUnitPrice, type PromoByProduct } from "@/lib/utils/promo-pricing";
 
 export interface CartItem {
   productId: string;
@@ -21,6 +22,8 @@ export interface CartItem {
 interface CartContextValue {
   items: CartItem[];
   discountRate: number;
+  // 지금 진행 중인 프로모션(상품 id별). 데모구매 외의 품목 가격 표시에 쓴다.
+  promoByProduct: PromoByProduct;
   // 기존 주문을 고치는 중이면 그 주문 id/표시용 라벨이 들어간다 (예:
   // "2026-09-10 · KR05-2630"). 새로 담는 중이면 둘 다 null.
   editingOrderId: string | null;
@@ -45,7 +48,15 @@ function lineKey(productId: string, isDemo: boolean) {
   return `${productId}:${isDemo ? "demo" : "regular"}`;
 }
 
-export function CartProvider({ discountRate, children }: { discountRate: number; children: ReactNode }) {
+export function CartProvider({
+  discountRate,
+  promoByProduct = {},
+  children,
+}: {
+  discountRate: number;
+  promoByProduct?: PromoByProduct;
+  children: ReactNode;
+}) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -109,6 +120,7 @@ export function CartProvider({ discountRate, children }: { discountRate: number;
     () => ({
       items,
       discountRate,
+      promoByProduct,
       editingOrderId,
       editingOrderLabel,
       addItem,
@@ -123,6 +135,7 @@ export function CartProvider({ discountRate, children }: { discountRate: number;
     [
       items,
       discountRate,
+      promoByProduct,
       editingOrderId,
       editingOrderLabel,
       addItem,
@@ -149,17 +162,22 @@ const SHIPPING_BOX_SIZE = 10; // 패들 10개당 배송 1박스
 const SHIPPING_FEE_PER_BOX = 5500;
 const VAT_RATE = 0.1;
 
-export function calcCartTotals(items: CartItem[], discountRate: number) {
+export function calcCartTotals(items: CartItem[], discountRate: number, promoByProduct: PromoByProduct = {}) {
   let subtotal = 0;
   let paddleQty = 0;
   const lines = items.map((item) => {
-    const unitPrice = calcDealerUnitPrice({
-      mapPrice: item.mapPrice,
-      productType: item.productType,
-      discountRatePercent: discountRate,
-      isDemo: item.isDemo,
-      fixedDealerPrice: item.fixedDealerPrice,
-    });
+    // 서버(dealer-cart-pricing.ts)와 같은 규칙: 데모구매가 아니고 진행 중인
+    // 프로모션이 걸린 상품이면 프로모션 공급가가 다른 모든 규칙보다 우선한다.
+    const promo = item.isDemo ? undefined : promoByProduct[item.productId];
+    const unitPrice = promo
+      ? promoUnitPrice(promo)
+      : calcDealerUnitPrice({
+          mapPrice: item.mapPrice,
+          productType: item.productType,
+          discountRatePercent: discountRate,
+          isDemo: item.isDemo,
+          fixedDealerPrice: item.fixedDealerPrice,
+        });
     const lineTotal = unitPrice * item.quantity;
     subtotal += lineTotal;
     if (item.category === "패들") paddleQty += item.quantity;

@@ -4,12 +4,21 @@ import { useState, type ChangeEvent } from "react";
 import { useCart } from "@/components/order/CartContext";
 import { Button } from "@/components/ui/Button";
 import { calcDealerUnitPrice } from "@/lib/utils/pricing";
+import { promoUnitPrice, type DealerPromo } from "@/lib/utils/promo-pricing";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 
 const currency = (n: number) =>
   new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(n);
 
-export function OrderRow({ product, discountRate }: { product: DealerCatalogRow; discountRate: number }) {
+export function OrderRow({
+  product,
+  discountRate,
+  promo,
+}: {
+  product: DealerCatalogRow;
+  discountRate: number;
+  promo?: DealerPromo;
+}) {
   const { addItem, open } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [quantityText, setQuantityText] = useState("1");
@@ -17,14 +26,19 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
   const [added, setAdded] = useState(false);
   const demoAllowed = product.demo_purchase_allowed;
 
-  const mapPrice = Number(product.unit_price ?? 0);
-  const unitPrice = calcDealerUnitPrice({
-    mapPrice,
-    productType: product.product_type,
-    discountRatePercent: discountRate,
-    isDemo: demoAllowed && isDemo,
-    fixedDealerPrice: product.fixed_dealer_price,
-  });
+  const isDemoPurchase = demoAllowed && isDemo;
+  // 프로모션은 정상구매에만 적용 — 데모구매를 체크하면 기존 데모 가격으로 돌아간다.
+  const activePromo = promo && !isDemoPurchase ? promo : undefined;
+  const mapPrice = activePromo ? activePromo.promoPrice : Number(product.unit_price ?? 0);
+  const unitPrice = activePromo
+    ? promoUnitPrice(activePromo)
+    : calcDealerUnitPrice({
+        mapPrice: Number(product.unit_price ?? 0),
+        productType: product.product_type,
+        discountRatePercent: discountRate,
+        isDemo: isDemoPurchase,
+        fixedDealerPrice: product.fixed_dealer_price,
+      });
   const subtotal = unitPrice * quantity;
   const outOfStock = product.available_stock <= 0;
 
@@ -78,7 +92,14 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
           </div>
         )}
         <div>
-          <p className="text-sm font-medium text-slate-900">{product.name}</p>
+          <p className="text-sm font-medium text-slate-900">
+            {product.name}
+            {activePromo && (
+              <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                프로모션
+              </span>
+            )}
+          </p>
           <p className="text-xs text-slate-400">{product.sku}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {outOfStock ? (
@@ -107,7 +128,9 @@ export function OrderRow({ product, discountRate }: { product: DealerCatalogRow;
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className="text-xs text-slate-400">소비자가 {currency(mapPrice)}</p>
+          <p className="text-xs text-slate-400">
+            {activePromo ? "행사 소비자가" : "소비자가"} {currency(mapPrice)}
+          </p>
           <p className="text-sm font-semibold text-slate-900">공급가 {currency(unitPrice)}</p>
         </div>
 
