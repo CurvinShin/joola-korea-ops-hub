@@ -76,7 +76,11 @@ export async function mergeDraftOrders(
     return { ok: false, message: "합칠 품목이 없습니다." };
   }
 
-  const priced = await priceCartItemsForDealer(supabase, dealerId, combinedItems);
+  // 합쳐지는 원본 주문들이 전부 아직 삭제 전이라, 프로모션 수량 한도 검사가
+  // 이 주문들 자신을 "이미 주문한 수량"으로 또 세지 않도록 전부 제외한다 —
+  // 안 그러면 이미 한도 안에서 나눠 주문한 걸 합치기만 해도 한도 초과로
+  // 잘못 거부될 수 있다.
+  const priced = await priceCartItemsForDealer(supabase, dealerId, combinedItems, { excludeOrderIds: uniqueIds });
   if (!priced.ok) return priced;
 
   const sorted = [...orders].sort((a, b) => {

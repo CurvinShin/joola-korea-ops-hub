@@ -380,6 +380,55 @@ export interface PurchaseOrder {
   created_at: string;
 }
 
+// 기간 한정 프로모션(예: 블랙프라이데이) — 딜러 등급과 무관한 고정 소비자가
+// +할인율을 정해진 기간에만 적용하고, 같은 promo_group을 공유하는 상품들
+// 전체에 딜러당 구매 수량 한도를 둘 수 있다. 0035 마이그레이션 참고.
+export interface ProductPromotion {
+  id: string;
+  name: string;
+  promo_group: string;
+  promo_price: number;
+  discount_rate_percent: number;
+  max_qty_per_dealer: number | null;
+  starts_on: string;
+  ends_on: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductPromotionItem {
+  promotion_id: string;
+  product_id: string;
+}
+
+export type NoticeTargetMode = "all" | "specific";
+
+// 딜러 포털(/order) 상단 공지사항. 0036 마이그레이션 참고.
+export interface SiteNotice {
+  id: string;
+  title: string;
+  body: string;
+  target_mode: NoticeTargetMode;
+  publish_on: string;
+  expires_on: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoticeDealerTarget {
+  notice_id: string;
+  dealer_id: string;
+}
+
+export interface NoticeAcknowledgment {
+  notice_id: string;
+  dealer_id: string;
+  acknowledged_at: string;
+}
+
 // Note: there is deliberately no `Database` wrapper type here. supabase-js's
 // query-builder generics need an exact shape (Row/Insert/Update/Relationships
 // for every table) to infer `.from("table").select()` results — a hand-typed

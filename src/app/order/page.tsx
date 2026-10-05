@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 import type { CartItem } from "@/components/order/CartContext";
 import type { EditOrderPrefill } from "@/components/order/DealerOrderWorkspace";
+import { NoticeBanner } from "@/components/notices/NoticeBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,8 @@ export default async function OrderPage({
 
   return (
     <div className="space-y-6">
+      <NoticeBanner dealerId={profile.dealer_id} />
+
       <div>
         <h1 className="text-xl font-semibold text-slate-900">{dealer?.name ?? "딜러"} 주문</h1>
         <p className="text-sm text-slate-500">

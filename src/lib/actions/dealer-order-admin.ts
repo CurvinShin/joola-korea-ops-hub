@@ -41,7 +41,7 @@ export async function updateDealerOrderItemsAdmin(
     return { ok: false, message: "입금 확인 전(임시) 주문만 수정할 수 있습니다." };
   }
 
-  const priced = await priceCartItemsForDealer(supabase, existing.dealer_id, items);
+  const priced = await priceCartItemsForDealer(supabase, existing.dealer_id, items, { excludeOrderIds: [orderId] });
   if (!priced.ok) return priced;
 
   const { error: deleteError } = await supabase.from("dealer_order_items").delete().eq("order_id", orderId);

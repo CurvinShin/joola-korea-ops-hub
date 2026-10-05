@@ -18,7 +18,8 @@ type PlaceOrderResult = { ok: true; message: string } | { ok: false; message: st
  */
 async function priceDealerCartItems(
   supabase: ReturnType<typeof createClient>,
-  items: { productId: string; quantity: number; isDemo: boolean }[]
+  items: { productId: string; quantity: number; isDemo: boolean }[],
+  opts?: { excludeOrderIds?: string[] }
 ) {
   const {
     data: { user },
@@ -30,7 +31,7 @@ async function priceDealerCartItems(
     return { ok: false as const, message: "계정에 연결된 딜러 정보가 없습니다. 관리자에게 문의해주세요." };
   }
 
-  return priceCartItemsForDealer(supabase, profile.dealer_id, items);
+  return priceCartItemsForDealer(supabase, profile.dealer_id, items, opts);
 }
 
 /**
@@ -120,7 +121,7 @@ export async function updateDealerCartOrder(
   if (inputError) return { ok: false, message: inputError };
 
   const supabase = createClient();
-  const priced = await priceDealerCartItems(supabase, items);
+  const priced = await priceDealerCartItems(supabase, items, { excludeOrderIds: [orderId] });
   if (!priced.ok) return priced;
 
   const { data: existing, error: existingError } = await supabase
