@@ -13,7 +13,7 @@ const promotionSchema = z.object({
   max_qty_per_dealer: z.coerce.number().int().min(1).optional(),
   starts_on: z.string().min(1, "시작일을 입력해주세요"),
   ends_on: z.string().min(1, "종료일을 입력해주세요"),
-  active: z.coerce.boolean().optional(),
+  active: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   sku_list: z.string().optional().or(z.literal("")),
 });
 

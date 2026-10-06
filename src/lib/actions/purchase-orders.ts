@@ -12,7 +12,7 @@ const purchaseOrderSchema = z.object({
   eta: z.string().optional().or(z.literal("")),
   shipping_status: z.enum(["not_shipped", "in_transit", "arrived_port", "cleared_customs", "delivered"]),
   customs_status: z.enum(["not_started", "in_progress", "cleared", "held"]),
-  received: z.coerce.boolean().optional(),
+  received: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   total_cost: z.coerce.number().min(0).default(0),
   notes: z.string().optional().or(z.literal("")),
 });

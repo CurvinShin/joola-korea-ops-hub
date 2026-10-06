@@ -11,7 +11,7 @@ const noticeSchema = z.object({
   target_mode: z.enum(["all", "specific"]),
   publish_on: z.string().min(1, "게시일을 입력해주세요"),
   expires_on: z.string().optional().or(z.literal("")),
-  active: z.coerce.boolean().optional(),
+  active: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
 });
 
 function parseNoticeForm(formData: FormData) {
