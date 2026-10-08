@@ -40,7 +40,12 @@ export async function middleware(request: NextRequest) {
   // 로그인 없이 열람 가능한 단일 보고서 페이지 — 접근 제어는 미들웨어가 아니라
   // 페이지 자체가 PUBLIC_REPORT_TOKEN과 URL의 token을 비교해서 한다(admin.ts
   // 참고). 여기서는 그 페이지가 /login으로 리다이렉트되지 않게만 해준다.
-  const isPublicReportRoute = request.nextUrl.pathname.startsWith("/public-report/");
+  const isPublicReportRoute =
+    request.nextUrl.pathname.startsWith("/public-report/") ||
+    // 옵시디안 자동 업데이트용 JSON 엔드포인트(/api/public-report/[token]/ops-summary).
+    // 로그인 세션이 없는 스크립트가 호출하므로 같은 방식으로 열어두고, 접근 제어는
+    // 라우트 안에서 PUBLIC_REPORT_TOKEN 비교로 한다.
+    request.nextUrl.pathname.startsWith("/api/public-report/");
 
   if (!user && !isAuthRoute && !isPublicReportRoute) {
     const redirectUrl = new URL("/login", request.url);

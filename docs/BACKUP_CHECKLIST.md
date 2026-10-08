@@ -14,6 +14,8 @@ Supabase 대시보드 → Table Editor → 테이블 선택 → Export → Expor
 - [ ] `sales_transactions` (스마트스토어 월 정산 수동 입력분)
 - [ ] `purchase_orders` (발주 기록)
 - [ ] `inventory_snapshots` (재고 이력)
+- [ ] `support_shipments` (협찬·지원 출고 기록)
+- [ ] `refund_claims` (환불·클레임 목록)
 
 ## 2순위 — 화면에서 수정해 온 마스터 데이터
 
