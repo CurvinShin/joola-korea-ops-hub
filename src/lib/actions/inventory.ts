@@ -40,9 +40,10 @@ function parseProductForm(formData: FormData) {
   return parsed.data;
 }
 
-export async function createProduct(formData: FormData) {
+// products + inventory 한 쌍을 만든다. createProduct(제품 추가)와
+// createProductFromGap(미매칭 재고에서 등록)이 같은 로직을 공유한다.
+async function insertProductWithInventory(data: ReturnType<typeof parseProductForm>) {
   const supabase = createClient();
-  const data = parseProductForm(formData);
 
   const { data: product, error } = await supabase
     .from("products")
@@ -73,9 +74,32 @@ export async function createProduct(formData: FormData) {
     low_stock_threshold: data.low_stock_threshold,
   });
   if (invError) throw new Error(invError.message);
+}
+
+export async function createProduct(formData: FormData) {
+  const data = parseProductForm(formData);
+  await insertProductWithInventory(data);
 
   revalidatePath("/inventory");
   redirect("/inventory");
+}
+
+/**
+ * 재고 > "미매칭" 탭에서 "제품으로 등록"을 눌러 만든 제품. 제품을 정상적으로
+ * 등록한 뒤 해당 미매칭 행(catalog_gaps)을 지워서, 등록과 동시에 목록에서
+ * 빠지게 한다. 제품 등록이 실패하면 예외가 나므로 미매칭 행은 그대로 남는다.
+ */
+export async function createProductFromGap(gapId: string, formData: FormData) {
+  const data = parseProductForm(formData);
+  await insertProductWithInventory(data);
+
+  const supabase = createClient();
+  const { error } = await supabase.from("catalog_gaps").delete().eq("id", gapId);
+  if (error) throw new Error(`제품은 등록됐지만 미매칭 목록에서 지우지 못했습니다: ${error.message}`);
+
+  revalidatePath("/inventory");
+  revalidatePath("/inventory/unmatched");
+  redirect("/inventory?status=gaps");
 }
 
 export async function updateProduct(id: string, formData: FormData) {

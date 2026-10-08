@@ -1,21 +1,30 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { createProduct, updateProduct, deleteProduct } from "@/lib/actions/inventory";
+import { createProduct, createProductFromGap, updateProduct, deleteProduct } from "@/lib/actions/inventory";
+import { dismissCatalogGap } from "@/lib/actions/catalog-gaps";
+import { extractLeadingCode } from "@/lib/utils/stock-refresh";
+import type { CatalogGap } from "@/lib/types/database.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProductForm } from "@/components/inventory/ProductForm";
-import { InventoryBrowser } from "@/components/inventory/InventoryBrowser";
+import { InventoryBrowser, INVENTORY_STATUSES, type InventoryStatus } from "@/components/inventory/InventoryBrowser";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: { new?: string; edit?: string };
+  searchParams: { new?: string; edit?: string; status?: string; register?: string };
 }) {
   const supabase = createClient();
+
+  // 상태 탭(?status=)은 주소에 담겨 있어서 배너·탭 링크로 바로 열리고 새로고침해도 유지된다.
+  const status: InventoryStatus = INVENTORY_STATUSES.includes(searchParams.status as InventoryStatus)
+    ? (searchParams.status as InventoryStatus)
+    : "all";
+  const listHref = status === "all" ? "/inventory" : `/inventory?status=${status}`;
 
   // 카테고리·서브카테고리·검색은 모두 InventoryBrowser 안에서 즉시(클라이언트 사이드)
   // 처리하므로, 여기서는 전체 목록을 한 번만 불러온다 (제품 수가 많지 않아 충분히 빠름).
@@ -32,14 +41,19 @@ export default async function InventoryPage({
   }, null);
   const newArrivals = latestBatch ? (rows ?? []).filter((r) => r.new_arrival_batch === latestBatch) : [];
 
-  const { count: gapCount } = await supabase
-    .from("catalog_gaps")
-    .select("id", { count: "exact", head: true });
+  const { data: gapRows } = await supabase.from("catalog_gaps").select("*").order("qty", { ascending: false });
+  const gaps = (gapRows ?? []) as CatalogGap[];
+  const gapCount = gaps.length;
 
-  const { count: backorderCount } = await supabase
-    .from("inventory_status")
-    .select("product_id", { count: "exact", head: true })
-    .lt("current_stock", 0);
+  const backorderCount = (rows ?? []).filter((r) => r.current_stock < 0).length;
+
+  const registerGap = searchParams.register ? gaps.find((g) => g.id === searchParams.register) : undefined;
+  const registerDefaults = registerGap
+    ? (() => {
+        const { brandSku, productName } = extractLeadingCode(registerGap.source_name);
+        return { sku: brandSku ?? "", name: productName, current_stock: registerGap.qty };
+      })()
+    : undefined;
 
   const { data: lastSnapshot } = await supabase
     .from("inventory_snapshots")
@@ -75,9 +89,9 @@ export default async function InventoryPage({
         </div>
       </div>
 
-      {!!gapCount && (
+      {!!gapCount && status !== "gaps" && (
         <Link
-          href="/inventory/unmatched"
+          href="/inventory?status=gaps"
           className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100"
         >
           <span>카탈로그 미매칭 재고 {gapCount}건 — 가격/유형 정보가 없어 제품으로 등록하지 못한 품목이 있습니다</span>
@@ -128,13 +142,17 @@ export default async function InventoryPage({
         </Card>
       )}
 
-      {!!backorderCount && (
-        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+      {!!backorderCount && status !== "backorder" && (
+        <Link
+          href="/inventory?status=backorder"
+          className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 hover:bg-red-100"
+        >
           <span>
             백오더(재고 마이너스) {backorderCount}건 — 딜러 주문 입금 확인 시 재고가 부족해도 차감되어 마이너스로
             내려간 품목입니다. 이지어드민에서 자동 발주가 걸리지 않았다면 직접 발주해주세요.
           </span>
-        </div>
+          <span className="shrink-0 pl-3 font-medium">보기 →</span>
+        </Link>
       )}
 
       <Card>
@@ -145,7 +163,7 @@ export default async function InventoryPage({
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
           {rows && rows.length > 0 ? (
             <div className="space-y-4 p-4">
-              <InventoryBrowser rows={rows} deleteProduct={deleteProduct} />
+              <InventoryBrowser rows={rows} gaps={gaps} status={status} deleteProduct={deleteProduct} dismissGap={dismissCatalogGap} />
             </div>
           ) : (
             <p className="p-8 text-center text-sm text-slate-400">등록된 제품이 없습니다.</p>
@@ -159,8 +177,22 @@ export default async function InventoryPage({
         </Modal>
       )}
 
+      {registerGap && registerDefaults && (
+        <Modal title="미매칭 재고를 제품으로 등록" closeHref="/inventory?status=gaps">
+          <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <p>실사 원본: {registerGap.source_name}</p>
+            <p>실사 수량 {registerGap.qty}개 · 내부관리코드 {registerGap.source_sku ?? "—"}</p>
+            <p className="mt-1 text-slate-400">
+              상품코드·제품명·재고를 채워 두었습니다. 카테고리, 상품 구분(가격 공식)과 사진을 확인하고 저장하면 제품으로
+              등록되면서 이 미매칭 목록에서 자동으로 빠집니다.
+            </p>
+          </div>
+          <ProductForm action={createProductFromGap.bind(null, registerGap.id)} defaultValues={registerDefaults} />
+        </Modal>
+      )}
+
       {editRow && (
-        <Modal title={`${editRow.name} 수정`} closeHref="/inventory">
+        <Modal title={`${editRow.name} 수정`} closeHref={listHref}>
           <ProductForm action={updateProduct.bind(null, editRow.product_id)} defaultValues={editRow} />
         </Modal>
       )}
