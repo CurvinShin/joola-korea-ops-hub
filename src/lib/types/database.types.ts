@@ -437,3 +437,41 @@ export interface NoticeAcknowledgment {
 // use the row types above to type your own component props and variables,
 // and swap in the real generated Database type (see README "Keeping types in
 // sync") once your Supabase project exists.
+
+export type SupportCategory = "partnership" | "event_support" | "influencer" | "athlete" | "other";
+export type SupportStatus = "pending" | "shipped";
+
+export interface SupportShipmentRow {
+  id: string;
+  shipped_on: string;
+  category: SupportCategory;
+  recipient_name: string;
+  event_id: string | null;
+  items: string;
+  value_krw: number | null;
+  status: SupportStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ClaimKind = "refund" | "exchange" | "claim";
+export type ClaimChannel = "dealer" | "smartstore" | "direct" | "other";
+export type ClaimStatus = "open" | "waiting" | "done";
+
+export interface RefundClaimRow {
+  id: string;
+  opened_on: string;
+  kind: ClaimKind;
+  channel: ClaimChannel;
+  counterparty: string;
+  dealer_id: string | null;
+  product_summary: string | null;
+  amount_krw: number | null;
+  status: ClaimStatus;
+  next_action: string | null;
+  resolved_on: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

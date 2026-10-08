@@ -21,6 +21,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/promotions", label: "프로모션" },
       { href: "/notices", label: "공지사항" },
       { href: "/purchase-orders", label: "발주" },
+      { href: "/claims", label: "환불·클레임" },
       { href: "/sales", label: "영업" },
       { href: "/sales/product-categories", label: "제품군 분석" },
       { href: "/sales/smartstore-settlement", label: "월말 정산(스마트스토어)" },
@@ -30,6 +31,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "성장",
     items: [
       { href: "/events", label: "이벤트" },
+      { href: "/support", label: "협찬·지원" },
       { href: "/facilities", label: "시설" },
       { href: "/ambassadors", label: "앰버서더" },
       { href: "/marketing", label: "마케팅", phase2: true },
