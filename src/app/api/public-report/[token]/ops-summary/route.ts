@@ -23,18 +23,26 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   since.setUTCDate(1);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [ordersRes, skuCountRes, dealersCountRes, inventoryRes] = await Promise.all([
+  const [ordersRes, skuCountRes, dealersCountRes, inventoryRes, pendingRes] = await Promise.all([
     supabase.from("dealer_orders").select("order_date, total_amount").gte("order_date", sinceStr),
     supabase.from("smartstore_sku_map").select("*", { count: "exact", head: true }),
     supabase.from("dealers").select("*", { count: "exact", head: true }),
-    supabase.from("inventory").select("current_stock, low_stock_threshold"),
+    // 대시보드의 "재고 부족 SKU"와 같은 기준(단종 상품 제외)으로 센다.
+    supabase.from("inventory_status").select("is_low_stock, discontinued"),
+    // 입금 확인 대기(draft) 주문 — 건수와 가장 오래된 주문일만(딜러 이름 등은 포함하지 않음).
+    supabase
+      .from("dealer_orders")
+      .select("order_date")
+      .eq("status", "draft")
+      .order("order_date", { ascending: true }),
   ]);
 
   const firstError =
     ordersRes.error?.message ??
     skuCountRes.error?.message ??
     dealersCountRes.error?.message ??
-    inventoryRes.error?.message;
+    inventoryRes.error?.message ??
+    pendingRes.error?.message;
   if (firstError) {
     return Response.json({ error: firstError }, { status: 500 });
   }
@@ -48,9 +56,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     byMonth.set(ym, entry);
   }
 
-  const lowStockProductCount = (inventoryRes.data ?? []).filter(
-    (r) => r.current_stock <= r.low_stock_threshold
-  ).length;
+  const lowStockProductCount = (inventoryRes.data ?? []).filter((r) => r.is_low_stock && !r.discontinued).length;
+  const pendingOrders = pendingRes.data ?? [];
 
   return Response.json({
     generatedAt: new Date().toISOString(),
@@ -60,5 +67,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     smartstoreSkuMapCount: skuCountRes.count ?? 0,
     dealerCount: dealersCountRes.count ?? 0,
     lowStockProductCount,
+    pendingPaymentOrderCount: pendingOrders.length,
+    oldestPendingPaymentOrderDate: pendingOrders[0]?.order_date ?? null,
   });
 }

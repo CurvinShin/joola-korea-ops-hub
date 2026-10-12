@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { DataHealthCard } from "@/components/dashboard/DataHealthCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
@@ -85,6 +86,8 @@ export default async function DashboardPage() {
         />
         <KpiCard label="미완료 작업" value={String(pendingTasks?.length ?? 0)} />
       </div>
+
+      <DataHealthCard />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
