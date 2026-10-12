@@ -40,6 +40,8 @@ export function OrderRow({
         fixedDealerPrice: product.fixed_dealer_price,
       });
   const subtotal = unitPrice * quantity;
+  // 소비자가가 등록되지 않은 상품은 0원으로 보이며 주문되지 않도록 막는다.
+  const priceMissing = !activePromo && product.unit_price == null && (isDemoPurchase || product.fixed_dealer_price == null);
   const outOfStock = product.available_stock <= 0;
 
   function clampQuantity(next: number) {
@@ -131,7 +133,11 @@ export function OrderRow({
           <p className="text-xs text-slate-400">
             {activePromo ? "행사 소비자가" : "소비자가"} {currency(mapPrice)}
           </p>
-          <p className="text-sm font-semibold text-slate-900">공급가 {currency(unitPrice)}</p>
+          {priceMissing ? (
+            <p className="text-sm font-semibold text-red-600">가격 미등록 · 문의 필요</p>
+          ) : (
+            <p className="text-sm font-semibold text-slate-900">공급가 {currency(unitPrice)}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-1.5 py-1">
@@ -169,7 +175,7 @@ export function OrderRow({
           <p className="text-sm font-semibold text-brand-700">{currency(subtotal)}</p>
         </div>
 
-        <Button size="sm" variant={added ? "secondary" : "primary"} onClick={handleAddToCart}>
+        <Button size="sm" variant={added ? "secondary" : "primary"} onClick={handleAddToCart} disabled={priceMissing}>
           {added ? "담았습니다 ✓" : "담기"}
         </Button>
       </div>

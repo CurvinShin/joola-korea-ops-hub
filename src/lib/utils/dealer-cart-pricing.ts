@@ -188,6 +188,14 @@ export async function priceCartItemsForDealer(
     }
 
     const promo = it.isDemo ? undefined : promoByProduct.get(it.productId);
+    // 소비자가가 비어 있으면(고정 딜러가나 프로모션가도 없을 때) 0원으로 조용히
+    // 계산되어 주문이 들어가던 문제가 있었다 — 가격이 등록되지 않은 상품은 주문을 막는다.
+    if (!promo && product.unit_price == null && (it.isDemo || product.fixed_dealer_price == null)) {
+      return {
+        ok: false,
+        message: `"${product.name}"은(는) 가격이 아직 등록되지 않은 상품입니다. JOOLA Korea 담당자에게 문의해주세요.`,
+      };
+    }
     const unitPrice = promo
       ? calcHardgoodsPrice(promo.promoPrice, promo.discountRatePercent)
       : calcDealerUnitPrice({
