@@ -23,7 +23,8 @@ export default async function NoticesPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: rows, error }, { data: dealers }, { data: promos }] = await Promise.all([
+  const [{ data: rows, error }, { data: dealers }, { data: promos }, { data: allAcks }, { data: allTargets }] =
+    await Promise.all([
     supabase
       .from("site_notices")
       .select("*, notice_acknowledgments(count), notice_dealer_targets(count)")
@@ -33,10 +34,25 @@ export default async function NoticesPage({
       .from("product_promotions")
       .select("id, name, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on")
       .order("starts_on", { ascending: false }),
+    supabase.from("notice_acknowledgments").select("notice_id, dealer_id"),
+    supabase.from("notice_dealer_targets").select("notice_id, dealer_id"),
   ]);
 
   const dealerList = dealers ?? [];
-  const totalDealerCount = dealerList.length;
+
+  // 공지별 "확인한/아직 확인하지 않은 딜러" 계산용. 전체 대상 공지의 대상은 활성 딜러이고,
+  // 특정 딜러 공지의 대상은 notice_dealer_targets에 들어 있는 딜러다.
+  const activeDealerList = dealerList.filter((d) => d.status === "active");
+  const dealerNameById = new Map(dealerList.map((d) => [d.id, d.name]));
+  const acksByNotice = new Map<string, Set<string>>();
+  for (const a of allAcks ?? []) {
+    if (!acksByNotice.has(a.notice_id)) acksByNotice.set(a.notice_id, new Set());
+    acksByNotice.get(a.notice_id)!.add(a.dealer_id);
+  }
+  const targetsByNotice = new Map<string, string[]>();
+  for (const t of allTargets ?? []) {
+    targetsByNotice.set(t.notice_id, [...(targetsByNotice.get(t.notice_id) ?? []), t.dealer_id]);
+  }
   const today = todayKst();
   const promoList = promos ?? [];
   const announcePromo = searchParams.announce ? promoList.find((p) => p.id === searchParams.announce) : undefined;
@@ -108,13 +124,17 @@ export default async function NoticesPage({
               </Thead>
               <tbody>
                 {rows.map((r) => {
-                  const ackCount =
-                    (r as unknown as { notice_acknowledgments: { count: number }[] }).notice_acknowledgments?.[0]
-                      ?.count ?? 0;
-                  const targetCount =
-                    (r as unknown as { notice_dealer_targets: { count: number }[] }).notice_dealer_targets?.[0]
-                      ?.count ?? 0;
-                  const denominator = r.target_mode === "specific" ? targetCount : totalDealerCount;
+                  const targetIds =
+                    r.target_mode === "specific"
+                      ? targetsByNotice.get(r.id) ?? []
+                      : activeDealerList.map((d) => d.id);
+                  const acked = acksByNotice.get(r.id) ?? new Set<string>();
+                  const confirmedCount = targetIds.filter((id) => acked.has(id)).length;
+                  const unconfirmedNames = targetIds
+                    .filter((id) => !acked.has(id))
+                    .map((id) => dealerNameById.get(id) ?? "")
+                    .filter(Boolean);
+                  const targetCount = targetIds.length;
                   const inWindow = today >= r.publish_on && (!r.expires_on || today <= r.expires_on);
                   return (
                     <Tr key={r.id}>
@@ -131,7 +151,19 @@ export default async function NoticesPage({
                         {r.publish_on} ~ {r.expires_on ?? "계속"}
                       </Td>
                       <Td>
-                        {ackCount}/{denominator}곳 확인
+                        <p>
+                          {confirmedCount}/{targetCount}곳 확인
+                        </p>
+                        {unconfirmedNames.length > 0 && (
+                          <details className="mt-0.5">
+                            <summary className="cursor-pointer text-xs text-amber-700 hover:underline">
+                              미확인 {unconfirmedNames.length}곳 보기
+                            </summary>
+                            <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-500">
+                              {unconfirmedNames.join(", ")}
+                            </p>
+                          </details>
+                        )}
                       </Td>
                       <Td>
                         {!r.active ? (
