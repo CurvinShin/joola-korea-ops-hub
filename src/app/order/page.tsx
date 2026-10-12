@@ -162,7 +162,12 @@ export default async function OrderPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>내 주문 내역</CardTitle>
+          <div className="flex w-full items-center justify-between">
+            <CardTitle>내 주문 내역 (최근 20건)</CardTitle>
+            <a href="/order/history" className="text-xs text-brand-600 hover:underline">
+              전체 내역 보기 →
+            </a>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <MyOrdersList orders={(orders ?? []) as unknown as MyOrderRow[]} />
