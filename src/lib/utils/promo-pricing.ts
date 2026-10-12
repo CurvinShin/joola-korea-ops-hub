@@ -15,6 +15,8 @@ export interface DealerPromo {
   startsOn: string;
   endsOn: string;
   productIds: string[];
+  // 이 딜러가 지금까지(같은 promo_group·같은 기간) 주문하고 남은 구매 가능 수량. 한도 없으면 null.
+  remainingQty?: number | null;
 }
 
 export type PromoByProduct = Record<string, DealerPromo>;

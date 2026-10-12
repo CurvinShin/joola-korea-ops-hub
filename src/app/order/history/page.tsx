@@ -303,6 +303,9 @@ export default async function OrderHistoryPage({
                             주문 수정하기
                           </Link>
                         )}
+                        <Link href={`/order?reorder=${o.id}`} className="font-medium text-brand-600 hover:underline">
+                          다시 주문
+                        </Link>
                       </div>
                     </div>
                   </details>

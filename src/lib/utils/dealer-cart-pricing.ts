@@ -98,7 +98,7 @@ async function fetchActivePromotions(
  * 다시 저장하거나, 여러 주문을 하나로 합칠 때 자기 자신과 중복으로 걸리지
  * 않도록).
  */
-async function sumPriorPromoQuantity(
+export async function sumPriorPromoQuantity(
   supabase: ReturnType<typeof createClient>,
   dealerId: string,
   productIds: string[],

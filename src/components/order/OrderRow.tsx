@@ -14,10 +14,12 @@ export function OrderRow({
   product,
   discountRate,
   promo,
+  isNew = false,
 }: {
   product: DealerCatalogRow;
   discountRate: number;
   promo?: DealerPromo;
+  isNew?: boolean;
 }) {
   const { addItem, open } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -96,9 +98,15 @@ export function OrderRow({
         <div>
           <p className="text-sm font-medium text-slate-900">
             {product.name}
+            {isNew && (
+              <span className="ml-1.5 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                신제품
+              </span>
+            )}
             {activePromo && (
               <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                 프로모션
+                {activePromo.remainingQty != null && ` · 남은 ${activePromo.remainingQty}개`}
               </span>
             )}
           </p>

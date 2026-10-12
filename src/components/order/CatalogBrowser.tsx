@@ -27,6 +27,15 @@ export function CatalogBrowser({
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
+  const [onlyNew, setOnlyNew] = useState(false);
+
+  // 최근 60일 안에 신제품으로 등록된 상품(YYYY-MM-DD 문자열 비교).
+  const newSince = useMemo(() => {
+    const d = new Date(Date.now() - 60 * 86400000);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const isNewProduct = (p: DealerCatalogRow) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince;
+  const newCount = useMemo(() => catalog.filter((p) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince).length, [catalog, newSince]);
 
   const promoByProduct = useMemo(() => buildPromoByProduct(promos), [promos]);
 
@@ -60,13 +69,15 @@ export function CatalogBrowser({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalog.filter((p) => {
+      if (onlyNew && !isNewProduct(p)) return false;
       if (selectedPromo && promoByProduct[p.product_id]?.id !== selectedPromo.id) return false;
       if (category && p.category !== category) return false;
       if (subcategory && p.subcategory !== subcategory) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
-  }, [catalog, query, category, subcategory, selectedPromo, promoByProduct]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, query, category, subcategory, selectedPromo, promoByProduct, onlyNew, newSince]);
 
   return (
     <div>
@@ -102,6 +113,7 @@ export function CatalogBrowser({
                 {currency(selectedPromo.promoPrice)} · 공급가 {currency(promoUnitPrice(selectedPromo))}
                 {selectedPromo.maxQtyPerDealer != null &&
                   ` · 딜러당 최대 ${selectedPromo.maxQtyPerDealer}개 (행사 기간 누적)`}
+                {selectedPromo.remainingQty != null && ` · 내 남은 구매 가능 수량 ${selectedPromo.remainingQty}개`}
               </p>
               <p className="mt-0.5 text-amber-700">
                 데모구매는 행사 대상이 아니며 기존 데모 가격이 적용됩니다.{" "}
@@ -135,6 +147,18 @@ export function CatalogBrowser({
           >
             전체 ({catalog.length})
           </button>
+          {newCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setOnlyNew((v) => !v)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium",
+                onlyNew ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              )}
+            >
+              신제품 ({newCount})
+            </button>
+          )}
           {categories.map((c) => {
             const count = catalog.filter((p) => p.category === c).length;
             return (
@@ -190,7 +214,13 @@ export function CatalogBrowser({
 
       {filtered.length > 0 ? (
         filtered.map((p) => (
-          <OrderRow key={p.product_id} product={p} discountRate={discountRate} promo={promoByProduct[p.product_id]} />
+          <OrderRow
+            key={p.product_id}
+            product={p}
+            discountRate={discountRate}
+            promo={promoByProduct[p.product_id]}
+            isNew={isNewProduct(p)}
+          />
         ))
       ) : (
         <p className="py-8 text-center text-sm text-slate-400">검색 결과가 없습니다.</p>

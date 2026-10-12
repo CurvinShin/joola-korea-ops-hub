@@ -160,6 +160,8 @@ export interface DealerCatalogRow {
   product_type: ProductType;
   fixed_dealer_price: number | null;
   demo_purchase_allowed: boolean;
+  // 신제품으로 등록된 날짜(0045). 없으면 null — 0045 적용 전에는 undefined일 수 있다.
+  new_arrival_batch?: string | null;
 }
 
 export interface DealerOrderItem {

@@ -4,17 +4,18 @@ import { MyOrdersList, type MyOrderRow } from "@/components/order/MyOrdersList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import type { DealerCatalogRow } from "@/lib/types/database.types";
 import type { CartItem } from "@/components/order/CartContext";
-import type { EditOrderPrefill } from "@/components/order/DealerOrderWorkspace";
+import type { EditOrderPrefill, ReorderPrefill } from "@/components/order/DealerOrderWorkspace";
 import { NoticeBanner } from "@/components/notices/NoticeBanner";
 import type { DealerPromo } from "@/lib/utils/promo-pricing";
 import { fillProductNames } from "@/lib/queries/dealer-order-product-names";
+import { sumPriorPromoQuantity } from "@/lib/utils/dealer-cart-pricing";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderPage({
   searchParams,
 }: {
-  searchParams?: { edit?: string };
+  searchParams?: { edit?: string; reorder?: string };
 }) {
   const supabase = createClient();
   const {
@@ -70,6 +71,27 @@ export default async function OrderPage({
     productIds: (r.product_promotion_items ?? []).map((i: { product_id: string }) => i.product_id),
   }));
 
+  // 프로모션별 "내 남은 구매 가능 수량" — 같은 promo_group은 한도를 합산해서 쓰므로
+  // 그룹 단위로 이미 주문한 수량을 센다. 수정 중인 주문(?edit=)은 자기 자신을 빼고 센다.
+  const groupPrior = new Map<string, number>();
+  for (const promo of promos) {
+    if (promo.maxQtyPerDealer == null || groupPrior.has(promo.promoGroup)) continue;
+    const sameGroup = promos.filter((p) => p.promoGroup === promo.promoGroup);
+    const prior = await sumPriorPromoQuantity(
+      supabase,
+      profile.dealer_id,
+      [...new Set(sameGroup.flatMap((p) => p.productIds))],
+      promo.startsOn,
+      promo.endsOn,
+      searchParams?.edit ? [searchParams.edit] : undefined
+    );
+    groupPrior.set(promo.promoGroup, prior);
+  }
+  for (const promo of promos) {
+    promo.remainingQty =
+      promo.maxQtyPerDealer == null ? null : Math.max(promo.maxQtyPerDealer - (groupPrior.get(promo.promoGroup) ?? 0), 0);
+  }
+
   const discountRate = Number(dealer?.discount_rate ?? 0);
   const catalogRows = (catalog ?? []) as DealerCatalogRow[];
 
@@ -122,6 +144,30 @@ export default async function OrderPage({
     }
   }
 
+  // ?reorder=<id>: 본인의 과거 주문(상태 무관)을 새 장바구니에 다시 담는다.
+  let reorder: ReorderPrefill | null = null;
+  let reorderSkipped = 0;
+  let reorderUnavailable = false;
+  const reorderId = searchParams?.reorder;
+  if (reorderId && !searchParams?.edit) {
+    const { data: source } = await supabase
+      .from("dealer_orders")
+      .select("id, dealer_id, dealer_order_items(product_id, quantity, is_demo)")
+      .eq("id", reorderId)
+      .maybeSingle();
+    if (source && source.dealer_id === profile.dealer_id) {
+      const catalogIds = new Set(catalogRows.map((c) => c.product_id));
+      const all = (source.dealer_order_items ?? []) as { product_id: string; quantity: number; is_demo: boolean }[];
+      reorderSkipped = all.filter((it) => !catalogIds.has(it.product_id)).length;
+      reorder = {
+        id: source.id,
+        items: all.map((it) => ({ productId: it.product_id, quantity: it.quantity, isDemo: it.is_demo })),
+      };
+    } else {
+      reorderUnavailable = true;
+    }
+  }
+
   return (
     <div className="space-y-6">
       <NoticeBanner dealerId={profile.dealer_id} />
@@ -136,6 +182,15 @@ export default async function OrderPage({
           재고가 부족해도 주문은 접수됩니다(백오더). 화면에 표시되는 금액은 송금하실 금액이 아닙니다 —
           이메일로 받으실 견적서에는 국내배송비가 추가되니, 이메일로 발송되는 배송비를 확인하신 후 입금해주세요.
         </p>
+        {reorder && (
+          <p className="mt-1 text-xs text-emerald-700">
+            이전 주문의 상품을 장바구니에 담았습니다. 가격과 재고는 현재 기준으로 다시 계산됩니다
+            {reorderSkipped > 0 ? ` (현재 판매하지 않는 상품 ${reorderSkipped}개는 제외되었습니다)` : ""}.
+          </p>
+        )}
+        {reorderUnavailable && (
+          <p className="mt-1 text-xs text-red-600">다시 주문할 수 없는 주문입니다 — 존재하지 않는 주문입니다.</p>
+        )}
         {editOrderUnavailable && (
           <p className="mt-1 text-xs text-red-600">
             이 주문은 수정할 수 없습니다 — 이미 담당자가 확인 중이거나 존재하지 않는 주문입니다.
@@ -153,6 +208,7 @@ export default async function OrderPage({
               catalog={catalogRows}
               discountRate={discountRate}
               editOrder={editOrder}
+              reorder={reorder}
               promos={promos}
             />
           ) : (
