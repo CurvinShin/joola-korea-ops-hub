@@ -114,6 +114,17 @@ export const krRegionLabel: Record<string, string> = {
   jeju: "제주",
 };
 
+// 시설 목록을 묶어 보여주기 위한 권역. 각 권역 안의 시/도 순서가 곧 화면에
+// 보이는 순서다(KrRegion enum 정의 순서와 무관하게 여기서 정한다).
+export const krZones: { key: string; label: string; regions: string[] }[] = [
+  { key: "capital", label: "수도권", regions: ["seoul", "gyeonggi", "incheon"] },
+  { key: "gangwon", label: "강원", regions: ["gangwon"] },
+  { key: "chungcheong", label: "충청", regions: ["daejeon", "sejong", "chungnam", "chungbuk"] },
+  { key: "honam", label: "호남", regions: ["gwangju", "jeonbuk", "jeonnam"] },
+  { key: "yeongnam", label: "영남", regions: ["busan", "daegu", "ulsan", "gyeongnam", "gyeongbuk"] },
+  { key: "jeju", label: "제주", regions: ["jeju"] },
+];
+
 export const ambassadorTypeLabel: Record<string, string> = {
   player: "선수",
   ambassador: "앰버서더",
