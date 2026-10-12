@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Input";
 import { NoticeForm } from "@/components/notices/NoticeForm";
+import { PromotionAnnounceModal } from "@/components/notices/PromotionAnnounceModal";
 
 export const dynamic = "force-dynamic";
 
@@ -17,21 +19,30 @@ function todayKst(): string {
 export default async function NoticesPage({
   searchParams,
 }: {
-  searchParams: { new?: string; edit?: string };
+  searchParams: { new?: string; edit?: string; announce?: string };
 }) {
   const supabase = createClient();
 
-  const [{ data: rows, error }, { data: dealers }] = await Promise.all([
+  const [{ data: rows, error }, { data: dealers }, { data: promos }] = await Promise.all([
     supabase
       .from("site_notices")
       .select("*, notice_acknowledgments(count), notice_dealer_targets(count)")
       .order("publish_on", { ascending: false }),
-    supabase.from("dealers").select("id, name").order("name"),
+    supabase.from("dealers").select("id, name, classification, status").order("name"),
+    supabase
+      .from("product_promotions")
+      .select("id, name, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on")
+      .order("starts_on", { ascending: false }),
   ]);
 
   const dealerList = dealers ?? [];
   const totalDealerCount = dealerList.length;
   const today = todayKst();
+  const promoList = promos ?? [];
+  const announcePromo = searchParams.announce ? promoList.find((p) => p.id === searchParams.announce) : undefined;
+  const announceCount = announcePromo
+    ? (rows ?? []).filter((r) => (r as unknown as { promotion_id: string | null }).promotion_id === announcePromo.id).length
+    : 0;
 
   let editDealerIds: string[] = [];
   if (searchParams.edit) {
@@ -53,9 +64,28 @@ export default async function NoticesPage({
             클릭하지 않아도 화면 이용에는 제한이 없습니다.
           </p>
         </div>
-        <Link href="/notices?new=1">
-          <Button>공지 추가</Button>
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {promoList.length > 0 && (
+            <form action="/notices" method="get" className="flex items-center gap-2">
+              <Select name="announce" defaultValue="" required className="max-w-[16rem]">
+                <option value="" disabled>
+                  프로모션 선택…
+                </option>
+                {promoList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.starts_on} ~ {p.ends_on})
+                  </option>
+                ))}
+              </Select>
+              <Button type="submit" variant="secondary">
+                프로모션 시작 공지
+              </Button>
+            </form>
+          )}
+          <Link href="/notices?new=1">
+            <Button>공지 추가</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -88,7 +118,14 @@ export default async function NoticesPage({
                   const inWindow = today >= r.publish_on && (!r.expires_on || today <= r.expires_on);
                   return (
                     <Tr key={r.id}>
-                      <Td>{r.title}</Td>
+                      <Td>
+                        {r.title}
+                        {(r as unknown as { promotion_id: string | null }).promotion_id && (
+                          <span className="ml-2 align-middle">
+                            <Badge tone="blue">프로모션</Badge>
+                          </span>
+                        )}
+                      </Td>
                       <Td>{r.target_mode === "all" ? "전체 딜러" : `특정 딜러 ${targetCount}곳`}</Td>
                       <Td className="text-xs">
                         {r.publish_on} ~ {r.expires_on ?? "계속"}
@@ -132,6 +169,16 @@ export default async function NoticesPage({
         <Modal title="공지 추가" closeHref="/notices">
           <NoticeForm action={createNotice} dealers={dealerList} />
         </Modal>
+      )}
+
+      {announcePromo && (
+        <PromotionAnnounceModal
+          promo={announcePromo}
+          dealers={dealerList}
+          today={today}
+          alreadyAnnouncedCount={announceCount}
+          returnTo="/notices"
+        />
       )}
 
       {editRow && (

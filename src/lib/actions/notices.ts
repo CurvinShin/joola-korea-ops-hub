@@ -146,3 +146,51 @@ export async function acknowledgeNotice(noticeId: string) {
 
   revalidatePath("/order");
 }
+
+/**
+ * 프로모션 탭/공지사항 탭의 [딜러에게 알리기]에서 호출된다. 프로모션 정보로
+ * 미리 채운 공지(site_notices)를 만들고, 선택한 딜러를 대상으로 지정한다.
+ * 딜러 주문 화면(/order) 상단 배너로 노출되고 "확인" 현황은 공지사항 탭에서
+ * 추적된다. promotion_id를 같이 저장해 프로모션 목록에서 공지 여부를 보여준다.
+ */
+export async function announcePromotion(promotionId: string, formData: FormData) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const data = parseNoticeForm(formData);
+
+  const { data: promo, error: promoError } = await supabase
+    .from("product_promotions")
+    .select("id")
+    .eq("id", promotionId)
+    .single();
+  if (promoError || !promo) throw new Error("프로모션을 찾을 수 없습니다.");
+
+  const { data: notice, error } = await supabase
+    .from("site_notices")
+    .insert({
+      title: data.title,
+      body: data.body,
+      target_mode: data.target_mode,
+      publish_on: data.publish_on,
+      expires_on: data.expires_on || null,
+      active: data.active ?? true,
+      promotion_id: promotionId,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !notice) throw new Error(error?.message ?? "공지 생성에 실패했습니다.");
+
+  await syncNoticeTargets(supabase, notice.id, data.dealerIds);
+
+  // 돌아갈 화면은 허용 목록으로만 제한한다(임의 URL로 리다이렉트되지 않도록).
+  const returnTo = String(formData.get("return_to") ?? "");
+  const dest = returnTo === "/notices" ? "/notices" : "/promotions";
+
+  revalidatePath("/promotions");
+  revalidatePath("/notices");
+  revalidatePath("/order");
+  redirect(dest);
+}

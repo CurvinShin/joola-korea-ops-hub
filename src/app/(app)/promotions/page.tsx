@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { PromotionForm } from "@/components/promotions/PromotionForm";
+import { PromotionAnnounceModal } from "@/components/notices/PromotionAnnounceModal";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ function todayKst(): string {
 export default async function PromotionsPage({
   searchParams,
 }: {
-  searchParams: { new?: string; edit?: string };
+  searchParams: { new?: string; edit?: string; announce?: string };
 }) {
   const supabase = createClient();
 
@@ -30,6 +31,22 @@ export default async function PromotionsPage({
     .order("starts_on", { ascending: false });
 
   const today = todayKst();
+
+  // 프로모션별 공지 현황. 0042 마이그레이션 전에는 컬럼이 없어 에러가 나므로
+  // 에러면 "공지 없음"으로 보고 화면은 그대로 열리게 한다.
+  const { data: promoNotices } = await supabase
+    .from("site_notices")
+    .select("id, promotion_id, notice_acknowledgments(count)")
+    .not("promotion_id", "is", null);
+  const noticeCountByPromo = new Map<string, number>();
+  for (const n of (promoNotices ?? []) as unknown as { promotion_id: string }[]) {
+    noticeCountByPromo.set(n.promotion_id, (noticeCountByPromo.get(n.promotion_id) ?? 0) + 1);
+  }
+
+  const { data: dealers } = searchParams.announce
+    ? await supabase.from("dealers").select("id, name, classification, status").order("name")
+    : { data: null };
+  const announceRow = searchParams.announce ? rows?.find((r) => r.id === searchParams.announce) : undefined;
 
   let editSkuList = "";
   if (searchParams.edit) {
@@ -77,6 +94,7 @@ export default async function PromotionsPage({
                   <Th>기간</Th>
                   <Th>적용 상품</Th>
                   <Th>상태</Th>
+                  <Th>딜러 공지</Th>
                   <Th></Th>
                 </Tr>
               </Thead>
@@ -107,8 +125,18 @@ export default async function PromotionsPage({
                           <Badge tone="slate">종료</Badge>
                         )}
                       </Td>
+                      <Td>
+                        {noticeCountByPromo.get(r.id) ? (
+                          <Badge tone="green">공지 {noticeCountByPromo.get(r.id)}건</Badge>
+                        ) : (
+                          <Badge tone="amber">미공지</Badge>
+                        )}
+                      </Td>
                       <Td className="text-right">
                         <div className="flex justify-end gap-3">
+                          <Link href={`/promotions?announce=${r.id}`} className="font-medium text-brand-600 hover:underline">
+                            딜러에게 알리기
+                          </Link>
                           <Link href={`/promotions?edit=${r.id}`} className="text-brand-600 hover:underline">
                             수정
                           </Link>
@@ -132,6 +160,16 @@ export default async function PromotionsPage({
         <Modal title="프로모션 추가" closeHref="/promotions">
           <PromotionForm action={createPromotion} />
         </Modal>
+      )}
+
+      {announceRow && dealers && (
+        <PromotionAnnounceModal
+          promo={announceRow}
+          dealers={dealers}
+          today={today}
+          alreadyAnnouncedCount={noticeCountByPromo.get(announceRow.id) ?? 0}
+          returnTo="/promotions"
+        />
       )}
 
       {editRow && (

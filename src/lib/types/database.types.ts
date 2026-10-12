@@ -413,6 +413,7 @@ export interface SiteNotice {
   publish_on: string;
   expires_on: string | null;
   active: boolean;
+  promotion_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
