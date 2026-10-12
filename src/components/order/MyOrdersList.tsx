@@ -18,6 +18,7 @@ export interface MyOrderRow {
   order_number: string | null;
   total_amount: number;
   dealer_order_items: {
+    product_id: string;
     quantity: number;
     is_demo: boolean;
     products: { name: string; sku: string } | null;

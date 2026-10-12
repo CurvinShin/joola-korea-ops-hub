@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
+import { fillProductNames } from "@/lib/queries/dealer-order-product-names";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const statusTone: Record<string, "slate" | "amber" | "blue" | "green" | "red"> =
 };
 
 interface HistoryItem {
+  product_id: string;
   quantity: number;
   unit_price: number;
   is_demo: boolean;
@@ -105,7 +107,7 @@ export default async function OrderHistoryPage({
   let listQuery = supabase
     .from("dealer_orders")
     .select(
-      "id, order_date, status, order_type, order_number, total_amount, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, payment_confirmed_at, shipped_at, dealer_order_items(quantity, unit_price, is_demo, products(name, sku))",
+      "id, order_date, status, order_type, order_number, total_amount, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, payment_confirmed_at, shipped_at, dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku))",
       { count: "exact" }
     )
     .eq("dealer_id", profile.dealer_id)
@@ -131,7 +133,7 @@ export default async function OrderHistoryPage({
 
   const [{ data: orders, count, error }, { data: summaryRows }] = await Promise.all([listQuery, summaryQuery]);
 
-  const rows = (orders ?? []) as unknown as HistoryOrder[];
+  const rows = await fillProductNames(supabase, (orders ?? []) as unknown as HistoryOrder[]);
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeSummary = (summaryRows ?? []).filter((r) => r.status !== "cancelled");

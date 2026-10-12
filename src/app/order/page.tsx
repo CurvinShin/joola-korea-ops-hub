@@ -7,6 +7,7 @@ import type { CartItem } from "@/components/order/CartContext";
 import type { EditOrderPrefill } from "@/components/order/DealerOrderWorkspace";
 import { NoticeBanner } from "@/components/notices/NoticeBanner";
 import type { DealerPromo } from "@/lib/utils/promo-pricing";
+import { fillProductNames } from "@/lib/queries/dealer-order-product-names";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function OrderPage({
     supabase
       .from("dealer_orders")
       .select(
-        "id, order_date, status, order_type, order_number, total_amount, auto_shipping_fee, manual_shipping_fee, dealer_order_items(quantity, unit_price, is_demo, products(name, sku))"
+        "id, order_date, status, order_type, order_number, total_amount, auto_shipping_fee, manual_shipping_fee, dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku))"
       )
       .eq("dealer_id", profile.dealer_id)
       .order("order_date", { ascending: false })
@@ -170,7 +171,7 @@ export default async function OrderPage({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <MyOrdersList orders={(orders ?? []) as unknown as MyOrderRow[]} />
+          <MyOrdersList orders={await fillProductNames(supabase, (orders ?? []) as unknown as MyOrderRow[])} />
         </CardContent>
       </Card>
     </div>
