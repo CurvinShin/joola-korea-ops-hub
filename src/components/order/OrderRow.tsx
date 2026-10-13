@@ -113,7 +113,15 @@ export function OrderRow({
           <p className="text-xs text-slate-400">{product.sku}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {outOfStock ? (
-              <span className="text-red-600">재고 없음 (백오더 주문 가능)</span>
+              <>
+                <span className="text-red-600">재고 없음 (백오더 주문 가능)</span>
+                <a
+                  href={`/order/import-requests?product=${product.product_id}`}
+                  className="ml-2 text-brand-600 underline hover:text-brand-700"
+                >
+                  수입 요청하기
+                </a>
+              </>
             ) : (
               <>가용 재고 {product.available_stock}개</>
             )}
