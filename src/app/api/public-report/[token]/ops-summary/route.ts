@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   since.setUTCDate(1);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [ordersRes, skuCountRes, dealersCountRes, inventoryRes, pendingRes] = await Promise.all([
+  const [ordersRes, skuCountRes, dealersCountRes, inventoryRes, pendingRes, dealerRowsRes, recentOrdersRes] = await Promise.all([
     supabase.from("dealer_orders").select("order_date, total_amount").gte("order_date", sinceStr),
     supabase.from("smartstore_sku_map").select("*", { count: "exact", head: true }),
     supabase.from("dealers").select("*", { count: "exact", head: true }),
@@ -35,6 +35,15 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       .select("order_date")
       .eq("status", "draft")
       .order("order_date", { ascending: true }),
+    // 딜러별 현황용 — 사업자(딜러) 이름·상태만 읽는다. 담당자 이름/연락처/주소/이메일은 select하지 않는다.
+    supabase.from("dealers").select("id, name, status"),
+    // 최근 주문(취소 제외) — 딜러별 최근 주문 3건/마지막 주문일/입금대기 집계용.
+    supabase
+      .from("dealer_orders")
+      .select("dealer_id, order_number, order_date, status, total_amount, confirmed_total_amount")
+      .neq("status", "cancelled")
+      .order("order_date", { ascending: false })
+      .limit(2000),
   ]);
 
   const firstError =
@@ -42,7 +51,9 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     skuCountRes.error?.message ??
     dealersCountRes.error?.message ??
     inventoryRes.error?.message ??
-    pendingRes.error?.message;
+    pendingRes.error?.message ??
+    dealerRowsRes.error?.message ??
+    recentOrdersRes.error?.message;
   if (firstError) {
     return Response.json({ error: firstError }, { status: 500 });
   }
@@ -59,6 +70,31 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const lowStockProductCount = (inventoryRes.data ?? []).filter((r) => r.is_low_stock && !r.discontinued).length;
   const pendingOrders = pendingRes.data ?? [];
 
+  // 딜러별 현황 (연락처 등 개인정보 없음: 사업자 이름, 주문번호, 날짜, 상태, 금액만)
+  const ordersByDealer = new Map<string, NonNullable<typeof recentOrdersRes.data>>();
+  for (const o of recentOrdersRes.data ?? []) {
+    const list = ordersByDealer.get(o.dealer_id) ?? [];
+    list.push(o);
+    ordersByDealer.set(o.dealer_id, list);
+  }
+  const dealers = (dealerRowsRes.data ?? []).map((d) => {
+    const list = ordersByDealer.get(d.id) ?? []; // 이미 최신순
+    const pending = list.filter((o) => o.status === "draft");
+    return {
+      name: d.name,
+      status: d.status,
+      lastOrderDate: list[0]?.order_date ?? null,
+      pendingPaymentCount: pending.length,
+      oldestPendingPaymentDate: pending.length ? pending[pending.length - 1].order_date : null,
+      recentOrders: list.slice(0, 3).map((o) => ({
+        orderNumber: o.order_number,
+        orderDate: o.order_date,
+        status: o.status,
+        amount: Number(o.confirmed_total_amount ?? o.total_amount ?? 0),
+      })),
+    };
+  });
+
   return Response.json({
     generatedAt: new Date().toISOString(),
     dealerOrdersByMonth: Object.fromEntries(
@@ -69,5 +105,6 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     lowStockProductCount,
     pendingPaymentOrderCount: pendingOrders.length,
     oldestPendingPaymentOrderDate: pendingOrders[0]?.order_date ?? null,
+    dealers,
   });
 }
