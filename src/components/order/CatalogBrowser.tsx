@@ -28,6 +28,7 @@ export function CatalogBrowser({
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
   const [onlyNew, setOnlyNew] = useState(false);
+  const [onlyInStock, setOnlyInStock] = useState(false);
 
   // 최근 60일 안에 신제품으로 등록된 상품(YYYY-MM-DD 문자열 비교).
   const newSince = useMemo(() => {
@@ -36,6 +37,8 @@ export function CatalogBrowser({
   }, []);
   const isNewProduct = (p: DealerCatalogRow) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince;
   const newCount = useMemo(() => catalog.filter((p) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince).length, [catalog, newSince]);
+
+  const inStockCount = useMemo(() => catalog.filter((p) => p.available_stock > 0).length, [catalog]);
 
   const promoByProduct = useMemo(() => buildPromoByProduct(promos), [promos]);
 
@@ -70,6 +73,7 @@ export function CatalogBrowser({
     const q = query.trim().toLowerCase();
     return catalog.filter((p) => {
       if (onlyNew && !isNewProduct(p)) return false;
+      if (onlyInStock && p.available_stock <= 0) return false;
       if (selectedPromo && promoByProduct[p.product_id]?.id !== selectedPromo.id) return false;
       if (category && p.category !== category) return false;
       if (subcategory && p.subcategory !== subcategory) return false;
@@ -77,7 +81,7 @@ export function CatalogBrowser({
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, query, category, subcategory, selectedPromo, promoByProduct, onlyNew, newSince]);
+  }, [catalog, query, category, subcategory, selectedPromo, promoByProduct, onlyNew, onlyInStock, newSince]);
 
   return (
     <div>
@@ -146,6 +150,16 @@ export function CatalogBrowser({
             )}
           >
             전체 ({catalog.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setOnlyInStock((v) => !v)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium",
+              onlyInStock ? "bg-sky-600 text-white" : "bg-sky-50 text-sky-700 hover:bg-sky-100"
+            )}
+          >
+            재고 있는 상품만 ({inStockCount})
           </button>
           {newCount > 0 && (
             <button

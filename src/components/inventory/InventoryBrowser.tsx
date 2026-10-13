@@ -17,6 +17,8 @@ import type { dismissCatalogGap as dismissCatalogGapAction } from "@/lib/actions
 
 const STATUS_LABEL: Record<InventoryStatus, string> = {
   all: "전체",
+  instock: "재고 있음",
+  outofstock: "재고 없음",
   backorder: "백오더",
   low: "재고 부족",
   incoming: "입고 예정",
@@ -25,6 +27,8 @@ const STATUS_LABEL: Record<InventoryStatus, string> = {
 };
 
 const STATUS_HINT: Partial<Record<InventoryStatus, string>> = {
+  instock: "재고가 1개 이상 있는 품목입니다 (단종 제외, 재고 많은 순).",
+  outofstock: "재고가 0개 이하인 품목입니다 (단종 제외). 백오더(마이너스)도 여기에 포함됩니다.",
   backorder:
     "재고가 마이너스인 품목입니다 (가장 많이 모자란 순). 딜러 주문 입금 확인 시 재고가 부족해도 차감돼 내려간 것이니, 이지어드민에서 자동 발주가 걸리지 않았다면 직접 발주해주세요.",
   low: "재고가 부족 기준 이하로 내려간 품목입니다 (단종·백오더 제외, 적은 순).",
@@ -42,6 +46,10 @@ function statusHref(status: InventoryStatus, extra?: string) {
 
 function matchesStatus(r: InventoryStatusRow, status: InventoryStatus) {
   switch (status) {
+    case "instock":
+      return !r.discontinued && r.current_stock > 0;
+    case "outofstock":
+      return !r.discontinued && r.current_stock <= 0;
     case "backorder":
       return r.current_stock < 0;
     case "low":
@@ -81,6 +89,8 @@ export function InventoryBrowser({
   const counts = useMemo(() => {
     const c: Record<InventoryStatus, number> = {
       all: rows.length,
+      instock: 0,
+      outofstock: 0,
       backorder: 0,
       low: 0,
       incoming: 0,
@@ -88,6 +98,8 @@ export function InventoryBrowser({
       gaps: gaps.length,
     };
     for (const r of rows) {
+      if (matchesStatus(r, "instock")) c.instock++;
+      if (matchesStatus(r, "outofstock")) c.outofstock++;
       if (matchesStatus(r, "backorder")) c.backorder++;
       if (matchesStatus(r, "low")) c.low++;
       if (matchesStatus(r, "incoming")) c.incoming++;
@@ -99,6 +111,7 @@ export function InventoryBrowser({
   // 상태 탭으로 먼저 좁힌 목록 위에서 카테고리·검색이 동작한다.
   const statusRows = useMemo(() => {
     const list = rows.filter((r) => matchesStatus(r, status));
+    if (status === "instock") return [...list].sort((a, b) => b.current_stock - a.current_stock);
     if (status === "backorder") return [...list].sort((a, b) => a.current_stock - b.current_stock);
     if (status === "low") return [...list].sort((a, b) => a.available_stock - b.available_stock);
     if (status === "incoming")
