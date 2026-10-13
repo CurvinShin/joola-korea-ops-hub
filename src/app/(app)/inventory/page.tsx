@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProductForm } from "@/components/inventory/ProductForm";
-import { InventoryBrowser, INVENTORY_STATUSES, type InventoryStatus } from "@/components/inventory/InventoryBrowser";
+import { InventoryBrowser } from "@/components/inventory/InventoryBrowser";
+import { INVENTORY_STATUSES, type InventoryStatus } from "@/lib/utils/inventory-status";
 
 export const dynamic = "force-dynamic";
 

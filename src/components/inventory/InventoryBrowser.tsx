@@ -7,14 +7,13 @@ import { Input } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_ORDER } from "@/lib/utils/categoryOrder";
+import { INVENTORY_STATUSES, type InventoryStatus } from "@/lib/utils/inventory-status";
 import type { CatalogGap, InventoryStatusRow } from "@/lib/types/database.types";
 import type { deleteProduct as deleteProductAction } from "@/lib/actions/inventory";
 import type { dismissCatalogGap as dismissCatalogGapAction } from "@/lib/actions/catalog-gaps";
 
-// 상태 탭 — 주소의 ?status= 값과 1:1로 대응한다(새로고침·링크 공유 시에도 유지).
-export type InventoryStatus = "all" | "backorder" | "low" | "incoming" | "discontinued" | "gaps";
-
-export const INVENTORY_STATUSES: InventoryStatus[] = ["all", "backorder", "low", "incoming", "discontinued", "gaps"];
+// 상태 탭 정의(InventoryStatus, INVENTORY_STATUSES)는 서버 페이지도 쓰므로
+// "use client"가 아닌 "@/lib/utils/inventory-status"에 있다.
 
 const STATUS_LABEL: Record<InventoryStatus, string> = {
   all: "전체",
