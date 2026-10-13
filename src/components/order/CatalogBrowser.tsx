@@ -36,8 +36,9 @@ export function CatalogBrowser({
     return d.toISOString().slice(0, 10);
   }, []);
   const isNewProduct = (p: DealerCatalogRow) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince;
-  const newCount = useMemo(() => catalog.filter((p) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince).length, [catalog, newSince]);
-
+  // "재고 있는 상품만 보기"를 체크하면 모든 카테고리/신제품/프로모션의 개수와 목록이 재고 있는 상품 기준이 된다.
+  const scoped = useMemo(() => (onlyInStock ? catalog.filter((p) => p.available_stock > 0) : catalog), [catalog, onlyInStock]);
+  const newCount = useMemo(() => scoped.filter((p) => !!p.new_arrival_batch && p.new_arrival_batch >= newSince).length, [scoped, newSince]);
   const inStockCount = useMemo(() => catalog.filter((p) => p.available_stock > 0).length, [catalog]);
 
   const promoByProduct = useMemo(() => buildPromoByProduct(promos), [promos]);
@@ -45,9 +46,9 @@ export function CatalogBrowser({
   // 프로모션별로 "지금 카탈로그에 실제로 있는" 상품 수 — 등록은 됐지만 카탈로그에서
   // 빠진 상품(단종 등)이 있어도 버튼의 개수와 눌렀을 때 보이는 개수가 같게 센다.
   const promoCounts = useMemo(() => {
-    const catalogIds = new Set(catalog.map((p) => p.product_id));
+    const catalogIds = new Set(scoped.map((p) => p.product_id));
     return new Map(promos.map((p) => [p.id, p.productIds.filter((id) => catalogIds.has(id)).length]));
-  }, [catalog, promos]);
+  }, [scoped, promos]);
   const selectedPromo = promos.find((p) => p.id === promoId) ?? null;
 
   const categories = useMemo(() => {
@@ -61,19 +62,18 @@ export function CatalogBrowser({
   const subcategories = useMemo(() => {
     if (!category) return [];
     const present = new Set(
-      catalog
+      scoped
         .filter((p) => p.category === category)
         .map((p) => p.subcategory)
         .filter((s): s is string => !!s)
     );
     return [...present].sort();
-  }, [catalog, category]);
+  }, [scoped, category]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return catalog.filter((p) => {
+    return scoped.filter((p) => {
       if (onlyNew && !isNewProduct(p)) return false;
-      if (onlyInStock && p.available_stock <= 0) return false;
       if (selectedPromo && promoByProduct[p.product_id]?.id !== selectedPromo.id) return false;
       if (category && p.category !== category) return false;
       if (subcategory && p.subcategory !== subcategory) return false;
@@ -81,7 +81,7 @@ export function CatalogBrowser({
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, query, category, subcategory, selectedPromo, promoByProduct, onlyNew, onlyInStock, newSince]);
+  }, [scoped, query, category, subcategory, selectedPromo, promoByProduct, onlyNew, newSince]);
 
   return (
     <div>
@@ -149,19 +149,9 @@ export function CatalogBrowser({
               category === null ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             )}
           >
-            전체 ({catalog.length})
+            전체 ({scoped.length})
           </button>
-          <button
-            type="button"
-            onClick={() => setOnlyInStock((v) => !v)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium",
-              onlyInStock ? "bg-sky-600 text-white" : "bg-sky-50 text-sky-700 hover:bg-sky-100"
-            )}
-          >
-            재고 있는 상품만 ({inStockCount})
-          </button>
-          {newCount > 0 && (
+          {(newCount > 0 || onlyNew) && (
             <button
               type="button"
               onClick={() => setOnlyNew((v) => !v)}
@@ -174,7 +164,7 @@ export function CatalogBrowser({
             </button>
           )}
           {categories.map((c) => {
-            const count = catalog.filter((p) => p.category === c).length;
+            const count = scoped.filter((p) => p.category === c).length;
             return (
               <button
                 key={c}
@@ -194,6 +184,18 @@ export function CatalogBrowser({
           })}
         </div>
 
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={onlyInStock}
+            onChange={(e) => setOnlyInStock(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span>
+            재고 있는 상품만 보기 <span className="text-xs text-slate-400">(현재 재고 있는 상품 {inStockCount}개)</span>
+          </span>
+        </label>
+
         {category && subcategories.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             <button
@@ -207,7 +209,7 @@ export function CatalogBrowser({
               전체
             </button>
             {subcategories.map((s) => {
-              const count = catalog.filter((p) => p.category === category && p.subcategory === s).length;
+              const count = scoped.filter((p) => p.category === category && p.subcategory === s).length;
               return (
                 <button
                   key={s}
