@@ -36,11 +36,15 @@ export default async function PromotionsPage({
   // 에러면 "공지 없음"으로 보고 화면은 그대로 열리게 한다.
   const { data: promoNotices } = await supabase
     .from("site_notices")
-    .select("id, promotion_id, notice_acknowledgments(count)")
-    .not("promotion_id", "is", null);
+    .select("id, promotion_id, created_at, notice_acknowledgments(count)")
+    .not("promotion_id", "is", null)
+    .order("created_at", { ascending: false });
   const noticeCountByPromo = new Map<string, number>();
-  for (const n of (promoNotices ?? []) as unknown as { promotion_id: string }[]) {
+  // 프로모션별 가장 최근 공지 id — "공지 N건" 배지를 누르면 그 공지를 열어 보고 수정할 수 있게 한다.
+  const latestNoticeByPromo = new Map<string, string>();
+  for (const n of (promoNotices ?? []) as unknown as { id: string; promotion_id: string }[]) {
     noticeCountByPromo.set(n.promotion_id, (noticeCountByPromo.get(n.promotion_id) ?? 0) + 1);
+    if (!latestNoticeByPromo.has(n.promotion_id)) latestNoticeByPromo.set(n.promotion_id, n.id);
   }
 
   const { data: dealers } = searchParams.announce
@@ -127,7 +131,14 @@ export default async function PromotionsPage({
                       </Td>
                       <Td>
                         {noticeCountByPromo.get(r.id) ? (
-                          <Badge tone="green">공지 {noticeCountByPromo.get(r.id)}건</Badge>
+                          <Link
+                            href={`/notices?view=${latestNoticeByPromo.get(r.id)}`}
+                            title="올린 공지 보기·수정"
+                            className="inline-flex items-center gap-1 hover:underline"
+                          >
+                            <Badge tone="green">공지 {noticeCountByPromo.get(r.id)}건</Badge>
+                            <span className="text-xs text-brand-600">보기·수정</span>
+                          </Link>
                         ) : (
                           <Badge tone="amber">미공지</Badge>
                         )}

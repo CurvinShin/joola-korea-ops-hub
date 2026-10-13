@@ -19,7 +19,7 @@ function todayKst(): string {
 export default async function NoticesPage({
   searchParams,
 }: {
-  searchParams: { new?: string; edit?: string; announce?: string };
+  searchParams: { new?: string; edit?: string; announce?: string; view?: string };
 }) {
   const supabase = createClient();
 
@@ -68,6 +68,21 @@ export default async function NoticesPage({
       .eq("notice_id", searchParams.edit);
     editDealerIds = (targets ?? []).map((t) => t.dealer_id);
   }
+  const viewRow = searchParams.view ? rows?.find((r) => r.id === searchParams.view) : undefined;
+  const viewTargetIds = viewRow
+    ? viewRow.target_mode === "specific"
+      ? targetsByNotice.get(viewRow.id) ?? []
+      : activeDealerList.map((d) => d.id)
+    : [];
+  const viewAcked = viewRow ? acksByNotice.get(viewRow.id) ?? new Set<string>() : new Set<string>();
+  const viewConfirmedNames = viewTargetIds
+    .filter((id) => viewAcked.has(id))
+    .map((id) => dealerNameById.get(id) ?? "")
+    .filter(Boolean);
+  const viewUnconfirmedNames = viewTargetIds
+    .filter((id) => !viewAcked.has(id))
+    .map((id) => dealerNameById.get(id) ?? "")
+    .filter(Boolean);
   const editRow = searchParams.edit ? rows?.find((r) => r.id === searchParams.edit) : undefined;
 
   return (
@@ -139,7 +154,9 @@ export default async function NoticesPage({
                   return (
                     <Tr key={r.id}>
                       <Td>
-                        {r.title}
+                        <Link href={`/notices?view=${r.id}`} className="font-medium text-slate-900 hover:text-brand-600 hover:underline">
+                          {r.title}
+                        </Link>
                         {(r as unknown as { promotion_id: string | null }).promotion_id && (
                           <span className="ml-2 align-middle">
                             <Badge tone="blue">프로모션</Badge>
@@ -211,6 +228,57 @@ export default async function NoticesPage({
           alreadyAnnouncedCount={announceCount}
           returnTo="/notices"
         />
+      )}
+
+      {viewRow && (
+        <Modal title="공지 보기" closeHref="/notices">
+          <div className="space-y-4 text-sm">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900">{viewRow.title}</h3>
+                {!viewRow.active ? (
+                  <Badge tone="slate">비활성</Badge>
+                ) : today >= viewRow.publish_on && (!viewRow.expires_on || today <= viewRow.expires_on) ? (
+                  <Badge tone="green">게시중</Badge>
+                ) : today < viewRow.publish_on ? (
+                  <Badge tone="blue">예정</Badge>
+                ) : (
+                  <Badge tone="slate">종료</Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {viewRow.publish_on} ~ {viewRow.expires_on ?? "계속"} ·{" "}
+                {viewRow.target_mode === "all" ? "전체 딜러" : `특정 딜러 ${viewTargetIds.length}곳`}
+              </p>
+            </div>
+            <div className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 leading-relaxed text-slate-800">
+              {viewRow.body}
+            </div>
+            <div>
+              <p className="font-medium text-slate-900">
+                확인 현황 {viewConfirmedNames.length}/{viewTargetIds.length}곳
+              </p>
+              {viewUnconfirmedNames.length > 0 && (
+                <p className="mt-1 text-xs leading-relaxed text-amber-700">
+                  아직 확인 안 함: {viewUnconfirmedNames.join(", ")}
+                </p>
+              )}
+              {viewConfirmedNames.length > 0 && (
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">확인함: {viewConfirmedNames.join(", ")}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <Link href="/notices">
+                <Button type="button" variant="secondary">
+                  닫기
+                </Button>
+              </Link>
+              <Link href={`/notices?edit=${viewRow.id}`}>
+                <Button type="button">수정</Button>
+              </Link>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {editRow && (
