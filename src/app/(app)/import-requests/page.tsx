@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { confirmImportBatch, markImportReceived } from "@/lib/actions/import-requests";
+import { cancelImportBatch, confirmImportBatch, markImportReceived, undoImportReceived } from "@/lib/actions/import-requests";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -30,7 +31,7 @@ type Row = {
 export default async function ImportRequestsPage({
   searchParams,
 }: {
-  searchParams: { batch?: string; created?: string; dealers?: string; failed?: string; error?: string };
+  searchParams: { batch?: string; created?: string; dealers?: string; failed?: string; error?: string; undone?: string; deleted?: string };
 }) {
   const supabase = createClient();
 
@@ -51,13 +52,14 @@ export default async function ImportRequestsPage({
   const all = (data ?? []) as unknown as Row[];
 
   // 확정된 배치 목록(최신순)
-  const batchMap = new Map<string, { id: string; at: string; qty: number; products: Set<string>; open: number }>();
+  const batchMap = new Map<string, { id: string; at: string; qty: number; products: Set<string>; open: number; received: number }>();
   for (const r of all) {
     if (!r.batch_id) continue;
-    const b = batchMap.get(r.batch_id) ?? { id: r.batch_id, at: r.submitted_at ?? r.created_at, qty: 0, products: new Set<string>(), open: 0 };
+    const b = batchMap.get(r.batch_id) ?? { id: r.batch_id, at: r.submitted_at ?? r.created_at, qty: 0, products: new Set<string>(), open: 0, received: 0 };
     b.qty += r.quantity;
     b.products.add(r.product_id);
     if (r.status === "submitted") b.open += 1;
+    if (r.status === "received") b.received += 1;
     batchMap.set(r.batch_id, b);
   }
   const batches = [...batchMap.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
@@ -112,6 +114,11 @@ export default async function ImportRequestsPage({
           )}
         </div>
       )}
+      {searchParams.undone !== undefined && (
+        <p className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          수입 요청 확정을 취소했습니다. 요청 {searchParams.undone}건이 접수 대기로 돌아왔고, 자동 생성된 백오더 주문 {searchParams.deleted ?? "0"}건을 삭제했습니다.
+        </p>
+      )}
       {searchParams.error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{searchParams.error}</p>}
       {error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error.message}</p>}
 
@@ -160,6 +167,25 @@ export default async function ImportRequestsPage({
             )}
             {viewBatch === "pending" && pendingCount > 0 && !isAdmin && (
               <span className="text-xs text-slate-500">확정은 관리자(admin)만 할 수 있습니다.</span>
+            )}
+            {batchInfo && batchInfo.received > 0 && isAdmin && (
+              <form action={undoImportReceived}>
+                <input type="hidden" name="batch_id" value={batchInfo.id} />
+                <ConfirmButton variant="secondary" message={'이 확정분의 "입고 완료" 표시를 모두 취소할까요? (수입 요청 완료 상태로 돌아갑니다)'}>
+                  입고 완료 전체 취소
+                </ConfirmButton>
+              </form>
+            )}
+            {batchInfo && batchInfo.received === 0 && isAdmin && (
+              <form action={cancelImportBatch}>
+                <input type="hidden" name="batch_id" value={batchInfo.id} />
+                <ConfirmButton
+                  variant="secondary"
+                  message={"이 수입 요청 확정을 취소할까요?\n자동 생성된 백오더 주문(아직 임시 상태이고 내용이 그대로인 것)을 삭제하고, 요청을 접수 대기로 되돌립니다. 하나라도 안 맞으면 아무것도 바꾸지 않습니다."}
+                >
+                  확정 취소 (접수 대기로 되돌리기)
+                </ConfirmButton>
+              </form>
             )}
             {batchInfo && batchInfo.open > 0 && isAdmin && (
               <form action={markImportReceived}>
@@ -211,6 +237,15 @@ export default async function ImportRequestsPage({
                         </li>
                       ))}
                     </ul>
+                    {g.byStatus["received"] && isAdmin && viewBatch !== "pending" ? (
+                      <form action={undoImportReceived}>
+                        <input type="hidden" name="batch_id" value={viewBatch} />
+                        <input type="hidden" name="product_id" value={g.productId} />
+                        <ConfirmButton size="sm" variant="secondary" message={'이 상품의 "입고 완료" 표시를 취소할까요?'}>
+                          이 상품 &ldquo;입고 완료&rdquo; 취소
+                        </ConfirmButton>
+                      </form>
+                    ) : null}
                     {g.byStatus["submitted"] && isAdmin && viewBatch !== "pending" ? (
                       <form action={markImportReceived}>
                         <input type="hidden" name="batch_id" value={viewBatch} />

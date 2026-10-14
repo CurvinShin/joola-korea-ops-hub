@@ -316,6 +316,77 @@ export async function rejectDealerOrder(orderId: string) {
 }
 
 /**
+ * 입금 확인이 끝난 주문(또는 취소된 주문)을 "입금 확인 전(임시)" 상태로 되돌린다.
+ *  - 재고가 이미 차감된 주문이면 차감분을 되돌려 놓는다(취소와 같은 방식).
+ *  - 확정 총액·추가 배송비·입금 확인 시각·출고 시각은 비우고, 주문 금액은 품목 합계로 다시 맞춘다.
+ *    (입금 확인 때 total_amount가 확정 총액으로 덮어써졌기 때문에, 그대로 두면 다시 입금 확인할 때
+ *    배송비가 이중으로 더해진다.)
+ *  - 이미 발주(제이디로지스 엑셀)된 주문은 먼저 "발주 취소"를 해야 한다.
+ * 잘못 누른 입금 확인/취소를 관리자가 언제든 바로잡을 수 있게 하기 위한 되돌리기다.
+ */
+export async function reopenDealerOrder(orderId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const supabase = createClient();
+    const { data: order, error: orderErr } = await supabase
+      .from("dealer_orders")
+      .select("id, status, stock_deducted, dispatch_batch_id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr) return { ok: false, message: `주문 조회 실패: ${orderErr.message}` };
+    if (!order) return { ok: false, message: "주문을 찾을 수 없습니다." };
+    if (order.status === "draft") return { ok: false, message: "이미 입금 확인 전(임시) 상태입니다." };
+    if (order.dispatch_batch_id) return { ok: false, message: "이미 발주한 주문입니다. 먼저 '발주 취소'를 해주세요." };
+
+    const { data: items, error: itemsErr } = await supabase
+      .from("dealer_order_items")
+      .select("product_id, quantity, unit_price")
+      .eq("order_id", orderId);
+    if (itemsErr) return { ok: false, message: `주문 품목 조회 실패: ${itemsErr.message}` };
+
+    if (order.stock_deducted) {
+      for (const item of items ?? []) {
+        const { data: inv, error: invErr } = await supabase
+          .from("inventory")
+          .select("current_stock")
+          .eq("product_id", item.product_id)
+          .maybeSingle();
+        if (invErr) return { ok: false, message: `재고 조회 실패: ${invErr.message}` };
+        const { error: updErr } = await supabase
+          .from("inventory")
+          .upsert(
+            { product_id: item.product_id, current_stock: (inv?.current_stock ?? 0) + item.quantity, updated_at: new Date().toISOString() },
+            { onConflict: "product_id" }
+          );
+        if (updErr) return { ok: false, message: `재고 복원 실패: ${updErr.message}` };
+      }
+    }
+
+    const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.unit_price) * Number(i.quantity), 0);
+    const payload: Record<string, unknown> = {
+      status: "draft",
+      stock_deducted: false,
+      confirmed_total_amount: null,
+      manual_shipping_fee: null,
+      payment_confirmed_at: null,
+      payment_confirmed_by: null,
+      shipped_at: null,
+    };
+    if ((items ?? []).length > 0) payload.total_amount = subtotal;
+
+    const { error } = await supabase.from("dealer_orders").update(payload).eq("id", orderId);
+    if (error) return { ok: false, message: `저장 실패: ${error.message}` };
+
+    revalidatePath("/dealer-orders");
+    revalidatePath("/inventory");
+    revalidatePath("/order");
+    revalidatePath("/sales");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다." };
+  }
+}
+
+/**
  * 취소된 주문을 관리자 화면에서 완전히 삭제 (dealer_order_items는
  * on delete cascade로 함께 삭제됨). 목록에서 취소된 주문이 계속 쌓여
  * 보이는 걸 정리하기 위한 것으로, 이미 "취소" 상태인 주문만 지울 수 있게

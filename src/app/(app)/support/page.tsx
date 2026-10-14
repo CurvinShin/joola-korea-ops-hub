@@ -5,6 +5,7 @@ import {
   updateSupportShipment,
   deleteSupportShipment,
   markSupportShipped,
+  markSupportPending,
 } from "@/lib/actions/support";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -158,6 +159,11 @@ export default async function SupportPage({
                         {r.status === "pending" && (
                           <form action={markSupportShipped.bind(null, r.id)}>
                             <button className="text-emerald-700 hover:underline">출고 처리</button>
+                          </form>
+                        )}
+                        {r.status === "shipped" && (
+                          <form action={markSupportPending.bind(null, r.id)}>
+                            <button className="text-amber-700 hover:underline">출고 취소</button>
                           </form>
                         )}
                         <Link href={`/support?edit=${r.id}`} className="text-brand-600 hover:underline">

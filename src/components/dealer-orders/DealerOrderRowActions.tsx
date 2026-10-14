@@ -5,6 +5,7 @@ import {
   confirmDealerOrderPayment,
   deleteDealerOrder,
   rejectDealerOrder,
+  reopenDealerOrder,
   setDealerOrderStatus,
   setDealerOrderSynced,
   updateConfirmedTotalAmount,
@@ -182,6 +183,23 @@ export function DealerOrderRowActions({
             {status === "cancelled" && (
               <Button
                 size="sm"
+                variant="secondary"
+                disabled={isPending}
+                onClick={() => {
+                  if (!confirm("취소된 이 주문을 '입금 확인 전(임시)' 상태로 되돌릴까요?")) return;
+                  setError(null);
+                  startTransition(async () => {
+                    const result = await reopenDealerOrder(orderId);
+                    if (!result.ok) setError(result.message);
+                  });
+                }}
+              >
+                취소 되돌리기
+              </Button>
+            )}
+            {status === "cancelled" && (
+              <Button
+                size="sm"
                 variant="danger"
                 disabled={isPending}
                 onClick={() => {
@@ -191,6 +209,23 @@ export function DealerOrderRowActions({
                 }}
               >
                 삭제
+              </Button>
+            )}
+            {status !== "cancelled" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={isPending}
+                onClick={() => {
+                  if (!confirm("입금 확인을 취소하고 '입금 확인 전(임시)' 상태로 되돌릴까요?\n차감된 재고는 복원되고, 확정 총액·추가 배송비는 비워집니다.")) return;
+                  setError(null);
+                  startTransition(async () => {
+                    const result = await reopenDealerOrder(orderId);
+                    if (!result.ok) setError(result.message);
+                  });
+                }}
+              >
+                입금 확인 취소
               </Button>
             )}
             {status !== "cancelled" && (

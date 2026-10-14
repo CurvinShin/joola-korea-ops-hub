@@ -199,3 +199,127 @@ export async function markImportReceived(formData: FormData) {
   revalidatePath("/import-requests");
   revalidatePath(BASE);
 }
+
+/** 관리자: "입고 완료"로 표시했던 요청을 다시 "수입 요청 완료"로 되돌린다(배치 전체 또는 한 상품). */
+export async function undoImportReceived(formData: FormData) {
+  const batchId = String(formData.get("batch_id") ?? "");
+  const productId = String(formData.get("product_id") ?? "");
+  if (!batchId) return;
+  const supabase = createClient();
+  let q = supabase
+    .from("import_requests")
+    .update({ status: "submitted", updated_at: new Date().toISOString() })
+    .eq("batch_id", batchId)
+    .eq("status", "received");
+  if (productId) q = q.eq("product_id", productId);
+  const { error } = await q;
+  if (error) throw new Error(error.message);
+  revalidatePath("/import-requests");
+  revalidatePath(BASE);
+}
+
+/**
+ * 관리자: 수입 요청 "확정"을 취소한다 — 확정으로 자동 만들어진 백오더 주문을 삭제하고, 요청을
+ * "접수" 상태로 되돌려 다시 확정할 수 있게 한다.
+ * 안전을 위해 모두 맞아야만 실행한다(하나라도 안 맞으면 아무것도 바꾸지 않는다):
+ *  - 입고 완료로 표시된 요청이 없어야 한다(먼저 "입고 완료 취소").
+ *  - 자동 생성된 주문이 아직 입금 확인 전(임시) 상태이고, 발주되지 않았으며, 품목·수량이 확정 당시 그대로여야 한다
+ *    (딜러가 합치거나 관리자가 고친 주문은 다른 내용이 섞였을 수 있어 자동으로 지우지 않는다).
+ */
+export async function cancelImportBatch(formData: FormData) {
+  const batchId = String(formData.get("batch_id") ?? "");
+  const back = (q: string): never => redirect(`/import-requests?batch=${batchId}&${q}`);
+  if (!batchId) redirect("/import-requests");
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user?.id ?? "").single();
+  if (me?.role !== "admin") back(`error=${encodeURIComponent("관리자만 확정을 취소할 수 있습니다.")}`);
+
+  const { data: reqs } = await supabase
+    .from("import_requests")
+    .select("id, dealer_id, product_id, quantity, status, order_id, dealers(name)")
+    .eq("batch_id", batchId);
+  const list = (reqs ?? []) as unknown as {
+    id: string;
+    dealer_id: string;
+    product_id: string;
+    quantity: number;
+    status: string;
+    order_id: string | null;
+    dealers: { name: string } | null;
+  }[];
+  if (list.length === 0) back(`error=${encodeURIComponent("취소할 확정 내역이 없습니다.")}`);
+  if (list.some((r) => r.status === "received")) {
+    back(`error=${encodeURIComponent('입고 완료로 표시된 요청이 있습니다. 먼저 "입고 완료 취소"를 해주세요.')}`);
+  }
+
+  const orderIds = [...new Set(list.map((r) => r.order_id).filter((v): v is string => !!v))];
+  const blocked: string[] = [];
+  const toDelete: { id: string; order_number: string | null; dealer_id: string }[] = [];
+
+  if (orderIds.length > 0) {
+    const { data: orders } = await supabase
+      .from("dealer_orders")
+      .select("id, dealer_id, status, notes, order_number, dispatch_batch_id, dealer_order_items(product_id, quantity), dealers(name)")
+      .in("id", orderIds);
+    const found = (orders ?? []) as unknown as {
+      id: string;
+      dealer_id: string;
+      status: string;
+      notes: string | null;
+      order_number: string | null;
+      dispatch_batch_id: string | null;
+      dealer_order_items: { product_id: string; quantity: number }[];
+      dealers: { name: string } | null;
+    }[];
+    const foundIds = new Set(found.map((o) => o.id));
+    for (const r of list) {
+      if (r.order_id && !foundIds.has(r.order_id)) blocked.push(`${r.dealers?.name ?? "딜러"}(주문이 이미 없어짐)`);
+    }
+    for (const o of found) {
+      const expected = new Map<string, number>();
+      for (const r of list.filter((x) => x.order_id === o.id)) {
+        expected.set(r.product_id, (expected.get(r.product_id) ?? 0) + r.quantity);
+      }
+      const actual = new Map<string, number>();
+      for (const it of o.dealer_order_items ?? []) actual.set(it.product_id, (actual.get(it.product_id) ?? 0) + it.quantity);
+      const same =
+        expected.size === actual.size && [...expected.entries()].every(([pid, q]) => actual.get(pid) === q);
+      const name = o.dealers?.name ?? "딜러";
+      if (o.status !== "draft") blocked.push(`${name}(입금 확인 등 처리됨)`);
+      else if (o.dispatch_batch_id) blocked.push(`${name}(발주됨)`);
+      else if (!(o.notes ?? "").startsWith("수입 요청 백오더")) blocked.push(`${name}(다른 주문과 합쳐짐)`);
+      else if (!same) blocked.push(`${name}(품목·수량이 바뀜)`);
+      else toDelete.push({ id: o.id, order_number: o.order_number, dealer_id: o.dealer_id });
+    }
+  }
+  if (blocked.length > 0) {
+    back(
+      `error=${encodeURIComponent(
+        `자동으로 취소할 수 없는 주문이 있어 아무것도 바꾸지 않았습니다: ${blocked.join(", ")}. 딜러 주문 화면에서 해당 주문을 먼저 정리한 뒤 다시 시도해주세요.`
+      )}`
+    );
+  }
+
+  for (const o of toDelete) {
+    const { error } = await supabase.from("dealer_orders").delete().eq("id", o.id);
+    if (error) back(`error=${encodeURIComponent(`백오더 주문을 삭제하지 못했습니다: ${error.message}`)}`);
+    if (o.order_number) {
+      await supabase.rpc("release_dealer_order_number_if_last", { p_dealer_id: o.dealer_id, p_order_number: o.order_number });
+    }
+  }
+
+  const { error: resetError } = await supabase
+    .from("import_requests")
+    .update({ status: "requested", batch_id: null, submitted_at: null, order_id: null, updated_at: new Date().toISOString() })
+    .eq("batch_id", batchId);
+  if (resetError) back(`error=${encodeURIComponent(`요청을 접수 상태로 되돌리지 못했습니다: ${resetError.message}`)}`);
+
+  revalidatePath("/import-requests");
+  revalidatePath("/dealer-orders");
+  revalidatePath(BASE);
+  redirect(`/import-requests?undone=${list.length}&deleted=${toDelete.length}`);
+}

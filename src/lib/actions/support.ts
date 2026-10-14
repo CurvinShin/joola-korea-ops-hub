@@ -56,6 +56,17 @@ export async function markSupportShipped(id: string) {
   redirect("/support");
 }
 
+export async function markSupportPending(id: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("support_shipments")
+    .update({ status: "pending", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/support");
+  redirect("/support");
+}
+
 export async function deleteSupportShipment(id: string) {
   const supabase = createClient();
   const { error } = await supabase.from("support_shipments").delete().eq("id", id);

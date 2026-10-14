@@ -163,6 +163,11 @@ export default async function ClaimsPage({
                               <button className="text-blue-700 hover:underline">대기로</button>
                             </form>
                           )}
+                          {r.status !== "open" && (
+                            <form action={setClaimStatus.bind(null, r.id, "open")}>
+                              <button className="text-amber-700 hover:underline">{r.status === "done" ? "완료 취소" : "진행 중으로"}</button>
+                            </form>
+                          )}
                           {r.status !== "done" && (
                             <form action={setClaimStatus.bind(null, r.id, "done")}>
                               <button className="text-emerald-700 hover:underline">완료</button>
