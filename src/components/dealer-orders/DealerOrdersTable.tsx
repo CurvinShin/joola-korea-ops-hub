@@ -8,6 +8,8 @@ import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { DealerOrderRowActions } from "@/components/dealer-orders/DealerOrderRowActions";
 import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
 import { ShippingListCopyButton } from "@/components/dealer-orders/ShippingListCopyButton";
+import { DispatchButton } from "@/components/dealer-orders/DispatchButton";
+import { OrderDispatchCancel } from "@/components/dealer-orders/DispatchCancelButtons";
 import { mergeDealerOrdersAdmin } from "@/lib/actions/dealer-order-admin";
 import { dealerOrderTypeLabel } from "@/lib/utils/labels";
 import { shippingListRowsToTsv } from "@/lib/utils/shipping-list";
@@ -45,10 +47,12 @@ export function DealerOrdersTable({
   rows,
   shippingRowsByOrder,
   catalog,
+  dispatchLabels = {},
 }: {
-  rows: (DealerOrderAdminRow & { order_date: string })[];
+  rows: (DealerOrderAdminRow & { order_date: string; dispatch_batch_id?: string | null })[];
   shippingRowsByOrder: Record<string, string[][]>;
   catalog: DealerCatalogRow[];
+  dispatchLabels?: Record<string, string>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("created_desc");
@@ -77,6 +81,10 @@ export function DealerOrdersTable({
   }
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
+
+  const selectedRowsList = rows.filter((o) => selected.has(o.id));
+  const draftSelected = selectedRowsList.filter((o) => o.status === "draft").length;
+  const dispatchedSelected = selectedRowsList.filter((o) => !!o.dispatch_batch_id).length;
 
   const { tsv, rowCount } = useMemo(() => {
     const selectedRows = rows
@@ -147,7 +155,7 @@ export function DealerOrdersTable({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
         <p className="text-sm text-slate-500">
-          {selected.size > 0 ? `${selected.size}건 선택됨 (택배 ${rowCount}줄)` : "택배 양식으로 복사할 주문을 체크하세요"}
+          {selected.size > 0 ? `${selected.size}건 선택됨 (택배 ${rowCount}줄)` : "택배 양식 복사 / 발주서를 만들 주문을 체크하세요"}
         </p>
         <div className="flex items-center gap-2">
           <Select
@@ -169,6 +177,7 @@ export function DealerOrdersTable({
             전체 해제
           </Button>
           <ShippingListCopyButton tsv={tsv} rowCount={rowCount} />
+          <DispatchButton orderIds={[...selected]} draftCount={draftSelected} dispatchedCount={dispatchedSelected} />
         </div>
       </div>
 
@@ -232,7 +241,15 @@ export function DealerOrdersTable({
                   />
                 </Td>
                 <Td className="whitespace-nowrap">{formatOrderDateTime(o.created_at)}</Td>
-                <Td className="font-medium text-slate-900">{o.dealers?.name ?? "—"}</Td>
+                <Td className="font-medium text-slate-900">
+                  {o.dealers?.name ?? "—"}
+                  {o.dispatch_batch_id && (
+                    <span className="mt-0.5 block text-[10px] font-normal text-emerald-600">
+                      발주 완료 · {dispatchLabels[o.dispatch_batch_id] ?? "발주서 기록 있음"}
+                      <OrderDispatchCancel orderId={o.id} />
+                    </span>
+                  )}
+                </Td>
                 <Td>
                   <OrderDetailModal order={o} catalog={catalog} />
                 </Td>

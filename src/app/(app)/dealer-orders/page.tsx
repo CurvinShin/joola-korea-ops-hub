@@ -5,6 +5,8 @@ import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { DealerOrdersTable } from "@/components/dealer-orders/DealerOrdersTable";
 import { buildShippingListRowsByOrder } from "@/lib/utils/shipping-list";
+import { dispatchOrderNumber } from "@/lib/utils/dispatch-sheet";
+import { BatchDispatchCancel } from "@/components/dealer-orders/DispatchCancelButtons";
 import type { DealerOrderAdminRow, DealerCatalogRow } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +51,7 @@ export default async function DealerOrdersPage({
   let ordersQuery = supabase
     .from("dealer_orders")
     .select(
-      "id, dealer_id, order_date, created_at, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, shipped_at, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
+      "id, dealer_id, order_date, created_at, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, shipped_at, dispatch_batch_id, dispatched_at, dealers(name, address, ship_recipient, payment_terms, contact_phone), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
     )
     .order("created_at", { ascending: false });
 
@@ -69,6 +71,26 @@ export default async function DealerOrdersPage({
   ]);
 
   const rows = (orders ?? []) as unknown as (DealerOrderAdminRow & { order_date: string })[];
+
+  // 발주서(제이디로지스 엑셀) 기록 — 최근 20건. 주문 옆 "발주 완료" 표시와 다시 내려받기에 쓴다.
+  const { data: batchData } = await supabase
+    .from("dispatch_batches")
+    .select("id, dispatch_date, batch_no, seq_start, seq_end, file_name, created_at, cancelled_at")
+    .order("dispatch_date", { ascending: false })
+    .order("batch_no", { ascending: false })
+    .limit(20);
+  const batches = (batchData ?? []) as unknown as {
+    id: string;
+    dispatch_date: string;
+    batch_no: number;
+    seq_start: number;
+    seq_end: number;
+    file_name: string;
+    cancelled_at: string | null;
+  }[];
+  const batchLabel = (b: (typeof batches)[number]) =>
+    `${b.dispatch_date.replace(/-/g, "")} ${b.batch_no}차 (${dispatchOrderNumber(b.dispatch_date, b.seq_start)}~${dispatchOrderNumber(b.dispatch_date, b.seq_end).split("-")[1]})`;
+  const dispatchLabels = Object.fromEntries(batches.filter((b) => !b.cancelled_at).map((b) => [b.id, batchLabel(b)]));
   const catalogRows = (catalog ?? []) as DealerCatalogRow[];
   const shippingRowsByOrder = Object.fromEntries(
     buildShippingListRowsByOrder(rows).map((o) => [o.orderId, o.rows])
@@ -107,7 +129,35 @@ export default async function DealerOrdersPage({
         </CardHeader>
         <CardContent className="p-0">
           {error && <p className="p-5 text-sm text-red-600">{error.message}</p>}
-          <DealerOrdersTable rows={rows} shippingRowsByOrder={shippingRowsByOrder} catalog={catalogRows} />
+          <DealerOrdersTable rows={rows} shippingRowsByOrder={shippingRowsByOrder} catalog={catalogRows} dispatchLabels={dispatchLabels} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>발주서 기록 (제이디로지스) {batches.length}건</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {batches.length === 0 ? (
+            <p className="p-6 text-center text-sm text-slate-400">아직 만든 발주서가 없습니다. 위 목록에서 주문을 체크하고 &ldquo;발주서 엑셀 만들기&rdquo;를 누르세요.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {batches.map((b) => (
+                <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+                  <span className={b.cancelled_at ? "text-slate-400 line-through" : "text-slate-700"}>
+                    {batchLabel(b)}
+                    {b.cancelled_at && <span className="ml-2 text-xs text-red-600 no-underline">취소됨</span>}
+                  </span>
+                  <span className="flex flex-wrap items-center gap-3">
+                    <a href={`/dealer-orders/dispatch/${b.id}`} className="text-xs text-brand-600 hover:underline">
+                      {b.file_name} 다시 내려받기
+                    </a>
+                    <BatchDispatchCancel batchId={b.id} cancelled={!!b.cancelled_at} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>
