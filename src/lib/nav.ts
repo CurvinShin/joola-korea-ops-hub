@@ -16,20 +16,31 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "운영",
+    label: "주문·재고",
     items: [
       { href: "/dealers", label: "딜러" },
       { href: "/dealer-orders", label: "딜러 주문" },
       { href: "/inventory", label: "재고" },
       { href: "/import-requests", label: "수입 요청" },
-      { href: "/order-lists", label: "오더리스트" },
-      { href: "/promotions", label: "프로모션" },
-      { href: "/notices", label: "공지사항" },
       { href: "/purchase-orders", label: "발주" },
-      { href: "/claims", label: "환불·클레임" },
+    ],
+  },
+  {
+    label: "영업·정산",
+    items: [
       { href: "/sales", label: "영업" },
       { href: "/sales/product-categories", label: "제품군 분석" },
       { href: "/sales/smartstore-settlement", label: "월말 정산(스마트스토어)" },
+      { href: "/claims", label: "환불·클레임" },
+    ],
+  },
+  {
+    label: "딜러 소통",
+    items: [
+      { href: "/order-lists", label: "오더리스트" },
+      { href: "/promotions", label: "프로모션" },
+      { href: "/notices", label: "공지사항" },
+      { href: "/marketing-assets", label: "마케팅 에셋" },
     ],
   },
   {

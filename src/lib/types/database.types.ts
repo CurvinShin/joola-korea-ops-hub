@@ -186,6 +186,8 @@ export interface EventRow {
   sponsorship_details: string | null;
   notes: string | null;
   post_event_report: string | null;
+  actual_cost: number | null;
+  result_links: string | null;
   created_at: string;
   updated_at: string;
 }
