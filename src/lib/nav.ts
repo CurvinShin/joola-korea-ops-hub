@@ -10,7 +10,10 @@ export type NavSection = { label: string; items: NavItem[] };
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "개요",
-    items: [{ href: "/dashboard", label: "대시보드" }],
+    items: [
+      { href: "/dashboard", label: "대시보드" },
+      { href: "/updates", label: "업데이트 기록" },
+    ],
   },
   {
     label: "운영",

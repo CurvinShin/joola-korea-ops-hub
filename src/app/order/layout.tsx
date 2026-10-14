@@ -24,6 +24,9 @@ export default function OrderLayout({ children }: { children: React.ReactNode })
             <a href="/order/order-list" className="hover:text-brand-700 hover:underline">
               오더리스트
             </a>
+            <a href="/order/updates" className="hover:text-brand-700 hover:underline">
+              업데이트 소식
+            </a>
           </nav>
         </div>
         <form action={signOut}>
