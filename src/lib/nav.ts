@@ -22,7 +22,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/dealer-orders", label: "딜러 주문" },
       { href: "/inventory", label: "재고" },
       { href: "/import-requests", label: "수입 요청" },
-      { href: "/purchase-orders", label: "발주" },
+      { href: "/purchase-orders", label: "해외 발주" },
     ],
   },
   {

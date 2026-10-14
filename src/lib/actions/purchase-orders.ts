@@ -59,3 +59,15 @@ export async function deletePurchaseOrder(id: string) {
   revalidatePath("/purchase-orders");
   redirect("/purchase-orders");
 }
+
+/**
+ * 발주 종료/진행 중 전환. 종료(closed)도 관리자가 언제든 되돌릴 수 있게 한다
+ * (CLAUDE.md "관리자 되돌리기 원칙").
+ */
+export async function setPurchaseOrderClosed(id: string, closed: boolean) {
+  const supabase = createClient();
+  const { error } = await supabase.from("purchase_orders").update({ closed }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/purchase-orders");
+  redirect("/purchase-orders");
+}
