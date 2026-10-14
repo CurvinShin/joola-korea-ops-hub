@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { parseOverseasFolder, type ParseResult } from "@/lib/utils/overseas-po-parse";
+import { parseOverseasFolder, deriveFolderState, FOLDER_STATE_LABEL, type ParseResult } from "@/lib/utils/overseas-po-parse";
 import { syncOverseasPurchaseOrders, type SyncResult } from "@/lib/actions/overseas-sync";
 
 const nf = new Intl.NumberFormat("ko-KR");
@@ -11,14 +11,21 @@ const nf = new Intl.NumberFormat("ko-KR");
  * 해외 발주 폴더 최신화: 동기화된 "2026 해외발주" 폴더를 고르면 브라우저에서 엑셀을 읽어
  * 미리보기를 보여주고, "저장"을 눌러야 반영된다. (큰 PDF는 서버로 보내지 않는다.)
  */
-export function OverseasSyncPanel({ existing }: { existing: { po_number: string; item_count: number | null }[] }) {
+export interface ExistingPo {
+  po_number: string;
+  item_count: number | null;
+  synced_state: string | null;
+  has_shipments: boolean;
+}
+
+export function OverseasSyncPanel({ existing }: { existing: ExistingPo[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SyncResult | null>(null);
   const [pending, startTransition] = useTransition();
-  const known = new Map(existing.map((e) => [e.po_number, e.item_count ?? 0]));
+  const known = new Map(existing.map((e) => [e.po_number, e]));
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -89,10 +96,18 @@ export function OverseasSyncPanel({ existing }: { existing: { po_number: string;
                 </thead>
                 <tbody>
                   {result.pos.map((p) => {
-                    const before = known.get(p.poNumber);
+                    const prev = known.get(p.poNumber);
+                    const before = prev === undefined ? undefined : prev.item_count ?? 0;
                     const qty = p.items.reduce((s, i) => s + i.qty, 0);
-                    const label =
-                      before === undefined ? "신규" : before !== p.items.length && p.items.length > 0 ? `갱신 (품목 ${before}→${p.items.length})` : "변경 없음";
+                    const state = deriveFolderState(p.closed, p.shipments.length + (prev?.has_shipments ? 1 : 0));
+                    const stateChanged = prev !== undefined && prev.synced_state !== state;
+                    const parts: string[] = [];
+                    if (before === undefined) parts.push("신규");
+                    else {
+                      if (before !== p.items.length && p.items.length > 0) parts.push(`품목 ${before}→${p.items.length}`);
+                      if (stateChanged) parts.push(`상태 → ${FOLDER_STATE_LABEL[state]}`);
+                    }
+                    const label = parts.length ? (before === undefined ? "신규" : `갱신 (${parts.join(", ")})`) : "변경 없음";
                     return (
                       <tr key={p.poNumber} className="border-t border-slate-100 align-top">
                         <td className="px-3 py-2 font-mono">

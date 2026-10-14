@@ -41,6 +41,19 @@ export interface ParseResult {
 
 type Row = unknown[];
 
+export type FolderState = "closed" | "shipped" | "none";
+
+/** 폴더 내용으로 본 발주 상태: 종료((CLOSED)) > 선적 기록 있음 > 아직 없음. */
+export function deriveFolderState(closed: boolean, shipmentCount: number): FolderState {
+  return closed ? "closed" : shipmentCount > 0 ? "shipped" : "none";
+}
+
+export const FOLDER_STATE_LABEL: Record<FolderState, string> = {
+  closed: "종료(배송 완료)",
+  shipped: "운송 중",
+  none: "미출고",
+};
+
 const PO_KEY_RE = /JKO\w{0,3}A(\d\d)-(\d\d)/i;
 const PL_NAME_RE = /pl\s*&\s*ci/i;
 

@@ -37,6 +37,7 @@ interface PoRow {
   eta: string | null;
   shipping_status: string;
   closed: boolean;
+  synced_state: string | null;
   po_kind: string | null;
   notes: string | null;
   item_count: number | null;
@@ -144,7 +145,12 @@ export default async function PurchaseOrdersPage({
         </Link>
       </div>
 
-      <OverseasSyncPanel existing={orders.map((o) => ({ po_number: o.po_number, item_count: o.item_count }))} />
+      <OverseasSyncPanel existing={orders.map((o) => ({
+          po_number: o.po_number,
+          item_count: o.item_count,
+          synced_state: o.synced_state,
+          has_shipments: shipmentsByPo.has(o.id),
+        }))} />
 
       <form className="flex flex-wrap items-center gap-2" action="/purchase-orders">
         <Input

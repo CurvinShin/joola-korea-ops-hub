@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { deriveFolderState } from "@/lib/utils/overseas-po-parse";
 
 const payloadSchema = z.array(
   z.object({
@@ -38,13 +39,13 @@ export type SyncResult =
   | { ok: true; created: number; updated: number; items: number; shipments: number }
   | { ok: false; error: string };
 
-const isClosedFolder = (f: string | null) => !!f && /closed/i.test(f);
 
 /**
  * 해외 발주 폴더 최신화: 브라우저에서 읽은 발주서/포장명세서 내용을 저장한다.
  *  - 새 발주번호는 만들고, 이미 있는 발주는 품목·선적 기록만 새로 채운다.
- *  - 이미 있는 발주의 상태(종료 등)는 건드리지 않는다. 단, 폴더 이름에 (CLOSED)가
- *    새로 붙은 경우에만 종료로 바꾼다(관리자가 "종료 취소"한 것을 덮어쓰지 않기 위해).
+ *  - 상태는 "폴더 기준 상태"가 지난번 최신화 때와 달라졌을 때만 바꾼다
+ *    (폴더 이름에 (CLOSED)가 붙음, 포장명세서가 새로 생김). 새 파일이 없어도 이런 변화가 있으면
+ *    상태가 갱신되고, 변화가 없으면 관리자가 직접 고친 상태는 그대로 둔다.
  *  - 금액은 저장하지 않는다.
  */
 export async function syncOverseasPurchaseOrders(json: string): Promise<SyncResult> {
@@ -58,10 +59,15 @@ export async function syncOverseasPurchaseOrders(json: string): Promise<SyncResu
     const numbers = list.map((p) => p.poNumber);
     const { data: existing, error: exErr } = await supabase
       .from("purchase_orders")
-      .select("id, po_number, source_folder, notes, closed")
+      .select("id, po_number, notes, closed, shipping_status, synced_state")
       .in("po_number", numbers);
     if (exErr) return { ok: false, error: exErr.message };
     const byNumber = new Map((existing ?? []).map((e) => [e.po_number as string, e]));
+    const { data: shipRows } = await supabase
+      .from("overseas_po_shipments")
+      .select("po_id")
+      .in("po_id", (existing ?? []).map((e) => e.id as string));
+    const hadShipments = new Set((shipRows ?? []).map((r) => r.po_id as string));
 
     let created = 0;
     let updated = 0;
@@ -72,6 +78,7 @@ export async function syncOverseasPurchaseOrders(json: string): Promise<SyncResu
       const totalQty = p.items.reduce((s, i) => s + i.qty, 0);
       const cur = byNumber.get(p.poNumber);
       let poId: string;
+      const state = deriveFolderState(p.closed, p.shipments.length + (cur && hadShipments.has(cur.id as string) ? 1 : 0));
 
       if (!cur) {
         const shipping = p.closed ? "delivered" : p.shipments.length > 0 ? "in_transit" : "not_shipped";
@@ -85,6 +92,7 @@ export async function syncOverseasPurchaseOrders(json: string): Promise<SyncResu
             customs_status: p.closed ? "cleared" : "not_started",
             received: p.closed,
             closed: p.closed,
+            synced_state: state,
             po_kind: p.kind,
             source_folder: p.folder,
             notes: p.memo,
@@ -104,11 +112,21 @@ export async function syncOverseasPurchaseOrders(json: string): Promise<SyncResu
           patch.total_qty = totalQty;
         }
         if (!cur.notes && p.memo) patch.notes = p.memo;
-        if (p.closed && !isClosedFolder(cur.source_folder as string | null)) {
-          patch.closed = true;
-          patch.received = true;
-          patch.shipping_status = "delivered";
-          patch.customs_status = "cleared";
+        patch.synced_state = state;
+        if (cur.synced_state !== state) {
+          if (state === "closed") {
+            patch.closed = true;
+            patch.received = true;
+            patch.shipping_status = "delivered";
+            patch.customs_status = "cleared";
+          } else {
+            if (cur.closed && cur.synced_state === "closed") {
+              // 폴더에서 (CLOSED)가 빠진 경우에만 종료를 풀어 준다
+              patch.closed = false;
+              patch.received = false;
+            }
+            if (state === "shipped" && cur.shipping_status === "not_shipped") patch.shipping_status = "in_transit";
+          }
         }
         const { error } = await supabase.from("purchase_orders").update(patch).eq("id", poId);
         if (error) return { ok: false, error: `${p.poNumber} 수정 실패: ${error.message}` };
