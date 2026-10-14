@@ -14,6 +14,7 @@ import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { PurchaseOrderForm } from "@/components/purchase-orders/PurchaseOrderForm";
+import { OverseasSyncPanel } from "@/components/purchase-orders/OverseasSyncPanel";
 import { shippingStatusLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic";
@@ -142,6 +143,8 @@ export default async function PurchaseOrdersPage({
           <Button>발주 추가</Button>
         </Link>
       </div>
+
+      <OverseasSyncPanel existing={orders.map((o) => ({ po_number: o.po_number, item_count: o.item_count }))} />
 
       <form className="flex flex-wrap items-center gap-2" action="/purchase-orders">
         <Input
