@@ -49,6 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/events", label: "이벤트" },
       { href: "/support", label: "협찬·지원" },
       { href: "/facilities", label: "시설" },
+      { href: "/partner-applications", label: "파트너 신청" },
       { href: "/ambassadors", label: "앰버서더" },
       { href: "/marketing", label: "마케팅", phase2: true },
     ],

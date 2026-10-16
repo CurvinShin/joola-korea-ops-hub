@@ -27,6 +27,9 @@ export type TaskCategory =
 export type ShippingStatus = "not_shipped" | "in_transit" | "arrived_port" | "cleared_customs" | "delivered";
 export type CustomsStatus = "not_started" | "in_progress" | "cleared" | "held";
 export type PartnershipStatus = "prospect" | "in_discussion" | "active" | "ended";
+// 브랜드 파트너(시설) 티어 — 계산 규칙은 lib/partner/tier.ts.
+export type FacilityTier = "pro" | "edge" | "champion";
+export type PartnerApplicationStatus = "pending" | "approved" | "rejected";
 // South Korea's 17 first-level administrative divisions (시/도), used to
 // place each facility on the region map. English keys map to Korean short
 // names in lib/utils/labels.ts (krRegionLabel).
@@ -333,6 +336,7 @@ export interface Facility {
   instagram_handle: string | null;
   courts_count: number | null;
   partnership_status: PartnershipStatus;
+  tier: FacilityTier | null;
   branding_installed: boolean;
   demo_paddles_provided: boolean;
   product_display: boolean;
@@ -341,6 +345,54 @@ export interface Facility {
   contact_email: string | null;
   contact_phone: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerApplicationAttachment {
+  kind: "court_photo" | "business_license" | "sns_capture";
+  path: string;
+  name: string;
+}
+
+// 로그인 없는 브랜드 파트너 신청서(0054). 거절되면 개인정보·첨부는 지워지고
+// (pii_purged_at) 시설명·지역·점수·거절 사유만 남는다.
+export interface PartnerApplication {
+  id: string;
+  status: PartnerApplicationStatus;
+  facility_name: string;
+  region: KrRegion;
+  address: string | null;
+  business_number: string | null;
+  business_type: string | null;
+  representative_name: string | null;
+  representative_phone: string | null;
+  applicant_name: string | null;
+  applicant_phone: string | null;
+  email: string | null;
+  bank_name: string | null;
+  account_holder: string | null;
+  // AES-256-GCM 암호문(lib/partner/crypto.ts). 화면에는 복호화해서 관리자에게만 보인다.
+  account_number_enc: string | null;
+  courts_count: number;
+  venue_suitable: boolean;
+  sales_capability: "wholesale" | "retail" | "none";
+  demo_package_intent: boolean;
+  answers: Record<string, boolean>;
+  sns_id: string | null;
+  dupr_id: string | null;
+  attachments: PartnerApplicationAttachment[];
+  expected_score: number;
+  expected_tier: FacilityTier | null;
+  potential_tier: FacilityTier | null;
+  review_reasons: string[];
+  final_tier: FacilityTier | null;
+  decision_message: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  facility_id: string | null;
+  consent_at: string;
+  pii_purged_at: string | null;
   created_at: string;
   updated_at: string;
 }

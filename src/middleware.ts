@@ -42,6 +42,10 @@ export async function middleware(request: NextRequest) {
   // 참고). 여기서는 그 페이지가 /login으로 리다이렉트되지 않게만 해준다.
   const isPublicReportRoute =
     request.nextUrl.pathname.startsWith("/public-report/") ||
+    // 브랜드 파트너 신청(초대 코드 링크)과 신청자 결과 확인(개별 토큰 링크). 접근 제어는
+    // 각 페이지/서버 액션이 PARTNER_APPLY_INVITE_TOKEN·토큰 해시로 직접 한다.
+    request.nextUrl.pathname.startsWith("/partner-apply/") ||
+    request.nextUrl.pathname.startsWith("/partner-status/") ||
     // 옵시디안 자동 업데이트용 JSON 엔드포인트(/api/public-report/[token]/ops-summary).
     // 로그인 세션이 없는 스크립트가 호출하므로 같은 방식으로 열어두고, 접근 제어는
     // 라우트 안에서 PUBLIC_REPORT_TOKEN 비교로 한다.
