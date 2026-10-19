@@ -36,7 +36,7 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
         <p>
           진행 상태: <span className="font-semibold text-slate-900">{statusText[status]}</span>
         </p>
-        <p>신청일: {new Date(app.created_at).toLocaleDateString("ko-KR")}</p>
+        <p>신청일: {new Date(app.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</p>
         {status === "pending" && (
           <>
             <p>예상 티어(신청 시 자동 계산): {tierName(app.expected_tier)}</p>

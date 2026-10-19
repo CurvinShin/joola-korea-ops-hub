@@ -490,3 +490,57 @@ export async function purgeApprovedPartnerData(id: string, formData: FormData) {
   revalidatePath("/facilities");
   redirect(`/partner-applications/${id}`);
 }
+
+// ---------------------------------------------------------------------------
+// 5) 직원: 승인 취소 (실수 승인 되돌리기)
+// ---------------------------------------------------------------------------
+// 승인하면 만들어진 "협의중" 시설을 지우고 신청서를 다시 '검토 중'으로 돌린다.
+// 시설이 이미 활성/종료로 바뀌었거나, 개인정보를 이미 삭제한 신청서는 되돌리지 않는다.
+export async function undoPartnerApproval(id: string) {
+  const supabase = createClient();
+  const { data: app } = await supabase
+    .from("partner_applications")
+    .select("id, answers, facility_id, pii_purged_at")
+    .eq("id", id)
+    .eq("status", "approved")
+    .maybeSingle();
+  if (!app) throw new Error("승인된 신청서를 찾을 수 없습니다.");
+  if (app.pii_purged_at) throw new Error("개인정보가 이미 삭제되어 승인을 취소할 수 없습니다.");
+
+  if (app.facility_id) {
+    const { data: facility } = await supabase
+      .from("facilities")
+      .select("partnership_status")
+      .eq("id", app.facility_id)
+      .maybeSingle();
+    if (facility && facility.partnership_status !== "in_discussion") {
+      throw new Error("시설의 상태가 '협의중'이 아니라서 승인을 취소할 수 없습니다. 시설 화면에서 직접 정리해 주세요.");
+    }
+    if (facility) {
+      const { error: delError } = await supabase.from("facilities").delete().eq("id", app.facility_id);
+      if (delError) {
+        throw new Error(`시설을 지우지 못했습니다. 다른 기록과 연결되어 있을 수 있습니다: ${delError.message}`);
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("partner_applications")
+    .update({
+      status: "pending",
+      final_tier: null,
+      decision_message: null,
+      decided_by: null,
+      decided_at: null,
+      facility_id: null,
+      answers: { ...(app.answers ?? {}), prior_partner_verified: false },
+      updated_at: now,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/partner-applications");
+  revalidatePath("/facilities");
+  redirect(`/partner-applications/${id}`);
+}

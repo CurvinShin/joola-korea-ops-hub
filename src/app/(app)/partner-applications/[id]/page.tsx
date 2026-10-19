@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   approvePartnerApplication,
   purgeApprovedPartnerData,
+  undoPartnerApproval,
   rejectPartnerApplication,
   setPartnerBusinessNumber,
 } from "@/lib/actions/partner-applications";
@@ -13,6 +14,7 @@ import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { krRegionLabel, partnerApplicationStatusLabel } from "@/lib/utils/labels";
 import type {
@@ -122,8 +124,10 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
   const approveWithId = approvePartnerApplication.bind(null, app.id);
   const rejectWithId = rejectPartnerApplication.bind(null, app.id);
   const purgeWithId = purgeApprovedPartnerData.bind(null, app.id);
+  const undoWithId = undoPartnerApproval.bind(null, app.id);
   // 승인된 신청서는 시설의 파트너십 상태가 '종료'일 때만 개인정보를 삭제할 수 있다.
   let facilityEnded = false;
+  let facilityInDiscussion = false;
   if (status === "approved" && app.facility_id && !app.pii_purged_at) {
     const { data: fac } = await supabase
       .from("facilities")
@@ -131,6 +135,7 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
       .eq("id", app.facility_id)
       .maybeSingle();
     facilityEnded = fac?.partnership_status === "ended";
+    facilityInDiscussion = fac?.partnership_status === "in_discussion";
   }
   const setBusinessNumberWithId = setPartnerBusinessNumber.bind(null, app.id);
   const defaultTier: FacilityTier = app.expected_tier ?? "champion";
@@ -195,7 +200,7 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
               {app.pii_purged_at && (
                 <p className="mb-2 text-xs text-slate-500">
                   {status === "rejected" ? "거절 처리로" : "계약 종료 후 삭제 요청으로"} 개인정보·계좌·첨부가 삭제되었습니다(
-                  {new Date(app.pii_purged_at).toLocaleDateString("ko-KR")}).
+                  {new Date(app.pii_purged_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}).
                 </p>
               )}
               <InfoRow label="지역" value={krRegionLabel[app.region] ?? app.region} />
@@ -209,7 +214,7 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
               <InfoRow label="이메일" value={app.email ?? "—"} />
               <InfoRow label="정산 계좌" value={[app.bank_name, app.account_holder, accountNumber].filter(Boolean).join(" · ")} />
               <InfoRow label="SNS / DUPR" value={[app.sns_id, app.dupr_id].filter(Boolean).join(" / ") || "—"} />
-              <InfoRow label="신청일" value={new Date(app.created_at).toLocaleString("ko-KR")} />
+              <InfoRow label="신청일" value={new Date(app.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />
             </CardContent>
           </Card>
 
@@ -291,9 +296,12 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                       <Label htmlFor="approve_message">신청자에게 보일 메시지 (선택)</Label>
                       <Textarea id="approve_message" name="decision_message" rows={3} />
                     </div>
-                    <Button type="submit" className="w-full">
+                    <ConfirmButton
+                      className="w-full"
+                      message="이 신청서를 승인하고 시설(협의중)로 등록합니다. 계속할까요? (승인 후에도 '승인 취소'로 되돌릴 수 있습니다)"
+                    >
                       승인하고 시설에 등록(협의중)
-                    </Button>
+                    </ConfirmButton>
                   </form>
                 </CardContent>
               </Card>
@@ -312,9 +320,13 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                       거절하면 개인정보·계좌·첨부 파일이 바로 삭제되고 시설명·지역·점수·거절 사유만 남습니다. 되돌릴 수
                       없습니다.
                     </p>
-                    <Button type="submit" variant="danger" className="w-full">
+                    <ConfirmButton
+                      variant="danger"
+                      className="w-full"
+                      message="거절하면 개인정보·계좌·첨부 파일이 바로 삭제되고 되돌릴 수 없습니다. 정말 거절할까요?"
+                    >
                       거절
-                    </Button>
+                    </ConfirmButton>
                   </form>
                 </CardContent>
               </Card>
@@ -327,13 +339,35 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
               <CardContent className="space-y-2">
                 <InfoRow label="상태" value={partnerApplicationStatusLabel[status]} />
                 {app.final_tier && <InfoRow label="최종 티어" value={facilityTierLabel[app.final_tier]} />}
-                {app.decided_at && <InfoRow label="처리일" value={new Date(app.decided_at).toLocaleString("ko-KR")} />}
+                {app.decided_at && <InfoRow label="처리일" value={new Date(app.decided_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />}
                 {app.decision_message && <p className="whitespace-pre-wrap text-sm text-slate-700">{app.decision_message}</p>}
                 {app.facility_id && (
                   <Link href={`/facilities/${app.facility_id}`} className="text-sm text-brand-700 hover:underline">
                     등록된 시설 보기 →
                   </Link>
                 )}
+              </CardContent>
+            </Card>
+          )}
+          {status === "approved" && !app.pii_purged_at && facilityInDiscussion && (
+            <Card>
+              <CardHeader>
+                <CardTitle>승인 취소</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={undoWithId} className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    실수로 승인했을 때 되돌립니다. 승인 때 만들어진 &quot;협의중&quot; 시설을 지우고 신청서를 다시 &quot;검토 중&quot;으로 돌립니다.
+                    시설이 이미 활성·종료로 바뀌었다면 취소할 수 없습니다.
+                  </p>
+                  <ConfirmButton
+                    variant="secondary"
+                    className="w-full"
+                    message="승인을 취소합니다. 등록된 협의중 시설이 삭제되고 신청서가 다시 검토 중으로 돌아갑니다. 계속할까요?"
+                  >
+                    승인 취소
+                  </ConfirmButton>
+                </form>
               </CardContent>
             </Card>
           )}

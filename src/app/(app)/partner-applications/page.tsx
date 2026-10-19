@@ -86,7 +86,7 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
                     <Td>{r.expected_score}</Td>
                     <Td>{r.expected_tier ? facilityTierLabel[r.expected_tier as FacilityTier] : "—"}</Td>
                     <Td>{r.final_tier ? facilityTierLabel[r.final_tier as FacilityTier] : "—"}</Td>
-                    <Td>{new Date(r.created_at).toLocaleDateString("ko-KR")}</Td>
+                    <Td>{new Date(r.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</Td>
                   </Tr>
                 ))}
                 {(rows ?? []).length === 0 && (
