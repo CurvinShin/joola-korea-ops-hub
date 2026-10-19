@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { FacilityForm } from "@/components/facilities/FacilityForm";
-import type { PartnershipStatus } from "@/lib/types/database.types";
+import type { FacilityTier, PartnershipStatus } from "@/lib/types/database.types";
+import { facilityTierLabel } from "@/lib/partner/tier";
 import { partnershipStatusLabel, krRegionLabel } from "@/lib/utils/labels";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
                 <Badge tone={statusTone[facility.partnership_status as PartnershipStatus]}>
                   {partnershipStatusLabel[facility.partnership_status] ?? facility.partnership_status}
                 </Badge>
+                {facility.tier && <Badge tone="purple">{facilityTierLabel[facility.tier as FacilityTier]}</Badge>}
                 {facility.branding_installed && <Badge tone="blue">브랜딩 설치</Badge>}
                 {facility.demo_paddles_provided && <Badge tone="purple">데모 패들</Badge>}
                 {facility.product_display && <Badge tone="slate">제품 진열</Badge>}

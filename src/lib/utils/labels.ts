@@ -93,6 +93,12 @@ export const partnershipStatusLabel: Record<string, string> = {
   ended: "종료",
 };
 
+export const partnerApplicationStatusLabel: Record<string, string> = {
+  pending: "검토 중",
+  approved: "승인",
+  rejected: "거절",
+};
+
 // South Korea's 17 시/도, short colloquial form (e.g. "경기도" -> "경기").
 export const krRegionLabel: Record<string, string> = {
   seoul: "서울",

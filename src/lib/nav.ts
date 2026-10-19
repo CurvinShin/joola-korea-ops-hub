@@ -1,4 +1,7 @@
-export type NavItem = { href: string; label: string; phase2?: boolean };
+import type { NavCountKey } from "@/lib/nav-counts";
+
+// countKey: 메뉴 옆에 "처리 대기 건수" 배지를 붙일 때 어떤 건수를 쓸지(lib/nav-counts.ts).
+export type NavItem = { href: string; label: string; phase2?: boolean; countKey?: NavCountKey };
 export type NavSection = { label: string; items: NavItem[] };
 
 // 데스크톱 Sidebar와 모바일 MobileSidebar가 똑같은 메뉴 구조를 쓰도록 한 곳에서
@@ -19,7 +22,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "주문·재고",
     items: [
       { href: "/dealers", label: "딜러" },
-      { href: "/dealer-orders", label: "딜러 주문" },
+      { href: "/dealer-orders", label: "딜러 주문", countKey: "dealerOrders" },
       { href: "/inventory", label: "재고" },
       { href: "/import-requests", label: "수입 요청" },
       { href: "/purchase-orders", label: "해외 발주" },
@@ -49,6 +52,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/events", label: "이벤트" },
       { href: "/support", label: "협찬·지원" },
       { href: "/facilities", label: "시설" },
+      { href: "/partner-applications", label: "파트너 신청", countKey: "partnerApplications" },
       { href: "/ambassadors", label: "앰버서더" },
       { href: "/marketing", label: "마케팅", phase2: true },
     ],
