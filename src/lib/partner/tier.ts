@@ -19,8 +19,11 @@ export interface TierInput {
   // 딜러십 계약 + 초도 물량 구매를 마쳤는지. 신청 단계에서는 항상 false이고
   // 담당자가 확인한 뒤에만 true가 된다(자가 응답으로 도매 20점을 받지 못하게).
   wholesaleVerified: boolean;
-  demoPackagePurchase: boolean;
   proNetInstalled: boolean;
+  // 기존 파트너 시설을 운영 중인 대표자라고 신청자가 답했는지(자가 응답).
+  priorPartnerClaimed: boolean;
+  // 담당자가 문제 없는 이력을 확인했는지. 확인된 경우에만 가산점이 점수에 들어간다.
+  priorPartnerVerified: boolean;
   ops: {
     regularLessons: boolean;
     hostedEvents: boolean;
@@ -55,8 +58,11 @@ export const TIER_CONFIG = {
   accessPoints: { subway10min: 4, bus5min: 2, residential: 3, parking: 1 },
   coachPoints: { dupr4: 3, nationalPodium: 3, snsReach: 2, certifiedOr3Years: 2 },
   thresholds: { pro: 70, edge: 45 },
+  // 2호점·3호점 신청 시, 기존 시설에 문제 없던 이력이 확인되면 총점에 더한다(2026-10-19 확정).
+  priorPartnerBonus: 5,
 } as const;
 
+// 기본 만점. 기존 파트너 가산점(TIER_CONFIG.priorPartnerBonus)은 이 점수 밖에서 더해진다.
 export const MAX_SCORE = 90;
 
 const METRO_REGIONS: KrRegion[] = ["gyeonggi", "incheon"];
@@ -93,6 +99,8 @@ export interface TierBreakdown {
   ops: number;
   access: number;
   coach: number;
+  // 기존 파트너 가산점(확인된 경우만)
+  bonus: number;
 }
 
 export interface TierResult {
@@ -133,13 +141,14 @@ export function computeTier(input: TierInput): TierResult {
           TIER_CONFIG.accessPoints
         ),
     coach: sumFlags(input.coach, TIER_CONFIG.coachPoints),
+    bonus: input.priorPartnerVerified ? TIER_CONFIG.priorPartnerBonus : 0,
   };
-  const score = breakdown.regionCourt + breakdown.sales + breakdown.ops + breakdown.access + breakdown.coach;
+  const score =
+    breakdown.regionCourt + breakdown.sales + breakdown.ops + breakdown.access + breakdown.coach + breakdown.bonus;
 
   const proRequirementsMet =
     input.salesCapability === "wholesale" &&
     input.wholesaleVerified &&
-    input.demoPackagePurchase &&
     input.proNetInstalled;
 
   const reviewReasons: string[] = [];
@@ -164,13 +173,15 @@ export function computeTier(input: TierInput): TierResult {
 }
 
 // 신청자에게 "조건을 채우면 받을 수 있는 티어"를 안내하기 위한 계산.
-// 도매를 고른 경우 딜러십 계약·초도 구매를 마쳤다고 가정하고, Pro 필수 조건도 채웠다고 본다.
+// 도매를 고른 경우 딜러십 계약·초도 구매를 마쳤다고 가정하고, Pro 필수 조건(Pro Net 설치)도 채웠다고 본다.
+// (2026-10-19: 데모 패키지 구매는 폐지되어 Pro 조건에서 뺐다 — 패들은 무상 지급)
 export function computePotentialTier(input: TierInput): TierResult {
   return computeTier({
     ...input,
     wholesaleVerified: input.salesCapability === "wholesale",
-    demoPackagePurchase: true,
     proNetInstalled: true,
+    // 신청자가 기존 파트너라고 답했다면 이력이 확인됐다고 보고 가산한다.
+    priorPartnerVerified: input.priorPartnerClaimed,
   });
 }
 

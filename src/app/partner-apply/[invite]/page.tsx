@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { isValidInviteToken } from "@/lib/partner/crypto";
 import { PartnerApplyForm } from "@/components/partner/PartnerApplyForm";
+import { PartnerBenefitsNotice } from "@/components/partner/PartnerBenefitsNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default function PartnerApplyPage({ params }: { params: { invite: string 
           검증해 승인 여부와 최종 티어를 알려 드립니다.
         </p>
       </div>
+      <PartnerBenefitsNotice />
       <PartnerApplyForm invite={params.invite} />
     </main>
   );

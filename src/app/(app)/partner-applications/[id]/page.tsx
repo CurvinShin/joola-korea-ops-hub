@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   approvePartnerApplication,
+  purgeApprovedPartnerData,
   rejectPartnerApplication,
   setPartnerBusinessNumber,
 } from "@/lib/actions/partner-applications";
 import { decryptSecret } from "@/lib/partner/crypto";
-import { computeTier, facilityTierLabel, MAX_SCORE, type TierInput } from "@/lib/partner/tier";
+import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput } from "@/lib/partner/tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -58,8 +59,10 @@ function tierInputOf(app: PartnerApplication): TierInput {
     venueSuitable: app.venue_suitable,
     salesCapability: app.sales_capability,
     wholesaleVerified: false,
-    demoPackagePurchase: app.demo_package_intent,
     proNetInstalled: false,
+    priorPartnerClaimed: !!a.prior_partner_claim,
+    // 승인 때 담당자가 확인한 경우에만 true로 저장된다.
+    priorPartnerVerified: !!a.prior_partner_verified,
     ops: {
       regularLessons: !!a.ops_regularLessons,
       hostedEvents: !!a.ops_hostedEvents,
@@ -109,9 +112,26 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
     })
   );
 
-  const tier = computeTier(tierInputOf(app));
+  const baseInput = tierInputOf(app);
+  const tier = computeTier(baseInput);
+  const claimed = baseInput.priorPartnerClaimed;
+  const bonusVerified = baseInput.priorPartnerVerified;
+  // 이력 확인 시 점수·티어(승인 전 참고용)
+  const withBonus = computeTier({ ...baseInput, priorPartnerVerified: true });
+  const bonusPoints = TIER_CONFIG.priorPartnerBonus;
   const approveWithId = approvePartnerApplication.bind(null, app.id);
   const rejectWithId = rejectPartnerApplication.bind(null, app.id);
+  const purgeWithId = purgeApprovedPartnerData.bind(null, app.id);
+  // 승인된 신청서는 시설의 파트너십 상태가 '종료'일 때만 개인정보를 삭제할 수 있다.
+  let facilityEnded = false;
+  if (status === "approved" && app.facility_id && !app.pii_purged_at) {
+    const { data: fac } = await supabase
+      .from("facilities")
+      .select("partnership_status")
+      .eq("id", app.facility_id)
+      .maybeSingle();
+    facilityEnded = fac?.partnership_status === "ended";
+  }
   const setBusinessNumberWithId = setPartnerBusinessNumber.bind(null, app.id);
   const defaultTier: FacilityTier = app.expected_tier ?? "champion";
 
@@ -139,10 +159,24 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
               <InfoRow label="조건 충족 시 가능 티어" value={app.potential_tier ? facilityTierLabel[app.potential_tier] : "—"} />
               <InfoRow
                 label="세부 점수"
-                value={`지역×코트 ${tier.breakdown.regionCourt} · 판매 ${tier.breakdown.sales} · 운영 ${tier.breakdown.ops} · 접근성 ${tier.breakdown.access} · 코치 ${tier.breakdown.coach}`}
+                value={`지역×코트 ${tier.breakdown.regionCourt} · 판매 ${tier.breakdown.sales} · 운영 ${tier.breakdown.ops} · 접근성 ${tier.breakdown.access} · 코치 ${tier.breakdown.coach}${tier.breakdown.bonus ? ` · 기존 파트너 가산 ${tier.breakdown.bonus}` : ""}`}
               />
+              <InfoRow
+                label="기존 파트너 이력"
+                value={
+                  bonusVerified
+                    ? `확인됨(+${bonusPoints}점 반영)`
+                    : claimed
+                      ? `신청자가 '있음'으로 응답 — 확인 전(확인 시 ${withBonus.score}점)`
+                      : "신청자 응답 없음"
+                }
+              />
+              {claimed && !bonusVerified && withBonus.tier !== tier.tier && (
+                <p className="text-xs text-slate-400">
+                  이력을 확인해 +{bonusPoints}점을 반영하면 예상 티어는 {withBonus.tier ? facilityTierLabel[withBonus.tier] : "담당자 검토 필요"}입니다.
+                </p>
+              )}
               <InfoRow label="판매 가능 여부" value={salesLabel[app.sales_capability]} />
-              <InfoRow label="데모 패키지 구매 희망" value={app.demo_package_intent ? "예" : "아니오"} />
               {app.review_reasons.length > 0 && (
                 <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
                   {app.review_reasons.map((r) => (
@@ -160,14 +194,15 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
             <CardContent className="space-y-2">
               {app.pii_purged_at && (
                 <p className="mb-2 text-xs text-slate-500">
-                  거절 처리로 개인정보·계좌·첨부가 삭제되었습니다({new Date(app.pii_purged_at).toLocaleDateString("ko-KR")}).
+                  {status === "rejected" ? "거절 처리로" : "계약 종료 후 삭제 요청으로"} 개인정보·계좌·첨부가 삭제되었습니다(
+                  {new Date(app.pii_purged_at).toLocaleDateString("ko-KR")}).
                 </p>
               )}
               <InfoRow label="지역" value={krRegionLabel[app.region] ?? app.region} />
               <InfoRow label="코트 수" value={String(app.courts_count)} />
               <InfoRow label="천장·공간 충분" value={app.venue_suitable ? "예" : "아니오"} />
               <InfoRow label="주소" value={app.address ?? "—"} />
-              <InfoRow label="사업자등록번호" value={app.business_number ?? "(미입력 — 승인 전 필수)"} />
+              <InfoRow label="사업자등록번호" value={app.business_number ?? (app.pii_purged_at ? "삭제됨" : "(미입력 — 승인 전 필수)")} />
               <InfoRow label="업태·종목" value={app.business_type ?? "—"} />
               <InfoRow label="대표자" value={[app.representative_name, app.representative_phone].filter(Boolean).join(" · ") || "—"} />
               <InfoRow label="신청 담당자" value={[app.applicant_name, app.applicant_phone].filter(Boolean).join(" · ") || "—"} />
@@ -234,9 +269,24 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                         <option value="champion">Champion Court</option>
                       </Select>
                       <p className="mt-1 text-xs text-slate-400">
-                        Pro는 도매(딜러십 계약·초도 1,000만원 구매)·데모 패키지·Pro Net 설치가 확인됐을 때만 선택하세요.
+                        Pro는 도매(별도의 딜러십 계약·초도 1,000만원 구매)와 Pro Net 설치가 확인됐을 때만 선택하세요.
                       </p>
                     </div>
+                    <label className="flex items-start gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="prior_partner_verified"
+                        defaultChecked={false}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span>
+                        기존 파트너 시설에 문제가 없었던 이력을 확인했습니다(+{bonusPoints}점)
+                        {claimed ? "" : " — 신청자는 응답하지 않았습니다"}
+                      </span>
+                    </label>
+                    <p className="text-xs text-slate-400">
+                      체크하면 +{bonusPoints}점을 반영한 점수로 위 최종 티어를 직접 골라 주세요. 티어는 자동으로 바뀌지 않습니다.
+                    </p>
                     <div>
                       <Label htmlFor="approve_message">신청자에게 보일 메시지 (선택)</Label>
                       <Textarea id="approve_message" name="decision_message" rows={3} />
@@ -283,6 +333,34 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                   <Link href={`/facilities/${app.facility_id}`} className="text-sm text-brand-700 hover:underline">
                     등록된 시설 보기 →
                   </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {status === "approved" && !app.pii_purged_at && (
+            <Card>
+              <CardHeader>
+                <CardTitle>계약 종료 후 개인정보 삭제</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {facilityEnded ? (
+                  <form action={purgeWithId} className="space-y-3">
+                    <p className="text-xs text-slate-500">
+                      신청서의 주소·사업자등록번호·대표자·연락처·이메일·계좌·SNS 정보와 첨부 파일이 바로 삭제됩니다. 시설명·지역·점수·티어·처리
+                      기록만 남습니다. 시설 정보에 적힌 담당자 연락처는 지워지지 않습니다. 되돌릴 수 없습니다.
+                    </p>
+                    <div>
+                      <Label htmlFor="confirm_name">확인을 위해 시설명을 그대로 입력하세요</Label>
+                      <Input id="confirm_name" name="confirm_name" placeholder={app.facility_name} required autoComplete="off" />
+                    </div>
+                    <Button type="submit" variant="danger" className="w-full">
+                      개인정보 삭제
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    시설의 파트너십 상태가 “종료”로 바뀐 뒤에 개인정보를 삭제할 수 있습니다. 시설 화면에서 상태를 먼저 바꿔 주세요.
+                  </p>
                 )}
               </CardContent>
             </Card>

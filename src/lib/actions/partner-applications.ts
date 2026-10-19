@@ -28,10 +28,14 @@ const KR_REGIONS = [
   "daegu", "gyeongnam", "busan", "ulsan", "jeju",
 ] as const;
 
+// 신청자가 동의한 혜택·의무 안내문의 버전(= 확정일). 나중에 어떤 안내문에 동의했는지 구분하는 용도.
+const BENEFIT_NOTICE_VERSION = "2026-10-19";
+
 const ANSWER_KEYS = [
   "ops_regularLessons", "ops_hostedEvents", "ops_monthlyUsers800", "ops_salesStaff",
   "access_carOnly", "access_subway10min", "access_bus5min", "access_residential", "access_parking",
   "coach_dupr4", "coach_nationalPodium", "coach_snsReach", "coach_certifiedOr3Years",
+  "prior_partner_claim",
 ] as const;
 
 function clientIp(): string {
@@ -120,10 +124,11 @@ const applicationSchema = z.object({
   sales_capability: z.enum(["wholesale", "retail", "none"], {
     errorMap: () => ({ message: "제품 판매 가능 여부를 선택해주세요" }),
   }),
-  demo_package_intent: z.literal("on").optional(),
   sns_id: optionalText,
   dupr_id: optionalText,
   consent: z.literal("on", { errorMap: () => ({ message: "개인정보 수집·이용에 동의해주세요" }) }),
+  // 혜택·의무 안내(정식 계약서는 별도 체결) 확인 동의. 안내문을 바꾸면 BENEFIT_NOTICE_VERSION도 같이 올린다.
+  benefit_notice: z.literal("on", { errorMap: () => ({ message: "혜택·의무 안내를 확인하고 동의해주세요" }) }),
   attachment_batch: z.string().uuid().optional().or(z.literal("")),
   attachments: z.string().optional(),
   // 사람에게는 보이지 않는 칸. 값이 있으면 자동 제출로 보고 버린다.
@@ -187,8 +192,10 @@ export async function submitPartnerApplication(_prev: SubmitResult | null, formD
     venueSuitable: d.venue_suitable === "on",
     salesCapability: d.sales_capability,
     wholesaleVerified: false,
-    demoPackagePurchase: d.demo_package_intent === "on",
     proNetInstalled: false,
+    // 자가 응답만으로는 가산하지 않는다. 담당자가 승인할 때 이력을 확인해야 점수에 들어간다.
+    priorPartnerClaimed: answers.prior_partner_claim,
+    priorPartnerVerified: false,
     ops: {
       regularLessons: answers.ops_regularLessons,
       hostedEvents: answers.ops_hostedEvents,
@@ -222,8 +229,7 @@ export async function submitPartnerApplication(_prev: SubmitResult | null, formD
       courts_count: d.courts_count,
       venue_suitable: tierInput.venueSuitable,
       sales_capability: d.sales_capability,
-      demo_package_intent: tierInput.demoPackagePurchase,
-      answers,
+      answers: { ...answers, benefit_notice_agreed: true, benefit_notice_version: BENEFIT_NOTICE_VERSION },
       address: d.address,
       business_number: d.business_number || null,
       business_type: d.business_type || null,
@@ -262,6 +268,7 @@ export async function submitPartnerApplication(_prev: SubmitResult | null, formD
 // 3) 직원: 승인 / 거절
 // ---------------------------------------------------------------------------
 const approveSchema = z.object({
+  prior_partner_verified: z.literal("on").optional(),
   final_tier: z.enum(["pro", "edge", "champion"], { errorMap: () => ({ message: "최종 티어를 선택해주세요" }) }),
   decision_message: z.string().trim().max(1000).optional().or(z.literal("")),
 });
@@ -309,6 +316,8 @@ export async function approvePartnerApplication(id: string, formData: FormData) 
     .from("partner_applications")
     .update({
       status: "approved",
+      // 기존 파트너 이력(문제 없음)을 담당자가 확인했는지 기록한다.
+      answers: { ...(app.answers ?? {}), prior_partner_verified: parsed.data.prior_partner_verified === "on" },
       final_tier: parsed.data.final_tier,
       decision_message: parsed.data.decision_message || null,
       decided_by: user?.id ?? null,
@@ -393,6 +402,74 @@ export async function rejectPartnerApplication(id: string, formData: FormData) {
   if (error) throw new Error(error.message);
 
   // 위 update가 RLS(관리자만)를 통과했으니 저장소 파일도 지운다.
+  const paths = ((app.attachments ?? []) as PartnerApplicationAttachment[]).map((a) => a.path);
+  if (paths.length > 0) await createAdminClient().storage.from(BUCKET).remove(paths);
+
+  revalidatePath("/partner-applications");
+  redirect(`/partner-applications/${id}`);
+}
+
+// ---------------------------------------------------------------------------
+// 4) 직원: 계약 종료 후 개인정보 삭제 (승인된 신청서)
+// ---------------------------------------------------------------------------
+// 안내문의 "계약이 끝나면 개인정보를 삭제한다"를 지키기 위한 기능이다.
+// 시설 상태가 '종료'일 때만 가능하고, 되돌릴 수 없다. 거절 때와 같은 항목을 지우며
+// 시설명·지역·점수·티어·처리 기록은 남긴다. 시설 정보(facilities)의 담당자 연락처는
+// 건드리지 않는다(필요하면 시설 화면에서 직접 고친다).
+const purgeSchema = z.object({
+  confirm_name: z.string().trim().min(1, "시설명을 입력해주세요"),
+});
+
+export async function purgeApprovedPartnerData(id: string, formData: FormData) {
+  const supabase = createClient();
+  const parsed = purgeSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error(parsed.error.errors.map((e) => e.message).join(", "));
+
+  const { data: app } = await supabase
+    .from("partner_applications")
+    .select("id, facility_name, facility_id, attachments, pii_purged_at")
+    .eq("id", id)
+    .eq("status", "approved")
+    .maybeSingle();
+  if (!app) throw new Error("승인된 신청서를 찾을 수 없습니다.");
+  if (app.pii_purged_at) throw new Error("이미 개인정보가 삭제된 신청서입니다.");
+  if (parsed.data.confirm_name !== app.facility_name) throw new Error("시설명이 일치하지 않습니다. 삭제하지 않았습니다.");
+
+  // 계약이 끝난 시설만 허용한다.
+  if (!app.facility_id) throw new Error("연결된 시설이 없어 삭제할 수 없습니다.");
+  const { data: facility } = await supabase
+    .from("facilities")
+    .select("partnership_status")
+    .eq("id", app.facility_id)
+    .maybeSingle();
+  if (facility?.partnership_status !== "ended") {
+    throw new Error("시설의 파트너십 상태가 '종료'일 때만 개인정보를 삭제할 수 있습니다.");
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("partner_applications")
+    .update({
+      address: null,
+      business_number: null,
+      business_type: null,
+      representative_name: null,
+      representative_phone: null,
+      applicant_name: null,
+      applicant_phone: null,
+      email: null,
+      bank_name: null,
+      account_holder: null,
+      account_number_enc: null,
+      sns_id: null,
+      dupr_id: null,
+      attachments: [],
+      pii_purged_at: now,
+      updated_at: now,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
   const paths = ((app.attachments ?? []) as PartnerApplicationAttachment[]).map((a) => a.path);
   if (paths.length > 0) await createAdminClient().storage.from(BUCKET).remove(paths);
 

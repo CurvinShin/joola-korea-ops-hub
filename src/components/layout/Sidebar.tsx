@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { NAV_SECTIONS } from "@/lib/nav";
+import { NavCountBadge, useNavCounts } from "@/components/layout/NavCountsProvider";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const counts = useNavCounts();
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
@@ -42,6 +44,7 @@ export function Sidebar() {
                     )}
                   >
                     {item.label}
+                    {item.countKey && <NavCountBadge count={counts[item.countKey]} />}
                     {item.phase2 && (
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
                         예정

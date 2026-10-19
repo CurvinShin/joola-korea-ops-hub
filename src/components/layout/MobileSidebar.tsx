@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { NAV_SECTIONS } from "@/lib/nav";
+import { NavCountBadge, useNavCounts } from "@/components/layout/NavCountsProvider";
 
 // md 미만(모바일) 화면에서만 보이는 햄버거 버튼 + 슬라이드 메뉴. 데스크톱
 // Sidebar는 md 미만에서 완전히 숨겨지므로(`hidden md:flex`), 모바일에서는
@@ -14,6 +15,7 @@ import { NAV_SECTIONS } from "@/lib/nav";
 // Sidebar와 공유해서 메뉴 구성이 절대 서로 달라지지 않게 한다.
 export function MobileSidebar() {
   const pathname = usePathname();
+  const counts = useNavCounts();
   const [open, setOpen] = useState(false);
 
   // 페이지 이동 시 메뉴 자동으로 닫기
@@ -82,6 +84,7 @@ export function MobileSidebar() {
                           )}
                         >
                           {item.label}
+                          {item.countKey && <NavCountBadge count={counts[item.countKey]} />}
                           {item.phase2 && (
                             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
                               예정

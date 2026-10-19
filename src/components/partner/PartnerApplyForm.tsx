@@ -54,8 +54,9 @@ function readTierInput(form: HTMLFormElement): TierInput | null {
     venueSuitable: on("venue_suitable"),
     salesCapability: sales,
     wholesaleVerified: false,
-    demoPackagePurchase: on("demo_package_intent"),
     proNetInstalled: false,
+    priorPartnerClaimed: on("prior_partner_claim"),
+    priorPartnerVerified: false,
     ops: {
       regularLessons: on("ops_regularLessons"),
       hostedEvents: on("ops_hostedEvents"),
@@ -93,8 +94,13 @@ function TierPreview({ input }: { input: TierInput | null }) {
       {potential.tier && potential.tier !== now.tier && (
         <p className="text-slate-600">
           {input.salesCapability === "wholesale" ? "딜러십 계약과 초도 물량 1,000만원(부가세 별도) 구매를 마치고, " : ""}
-          데모 패키지 구매·Pro Net 설치 조건을 채우면 <span className="font-semibold">{facilityTierLabel[potential.tier]}</span>
+          Pro Net 설치 조건을 채우면 <span className="font-semibold">{facilityTierLabel[potential.tier]}</span>
           까지 가능합니다.
+        </p>
+      )}
+      {input.priorPartnerClaimed && (
+        <p className="text-xs text-slate-500">
+          기존 파트너 이력 가산 5점은 담당자가 이력을 확인한 뒤 반영되며, 지금 점수에는 들어 있지 않습니다.
         </p>
       )}
       {input.salesCapability === "wholesale" && (
@@ -284,7 +290,7 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
       <Section title="제품 판매">
         {(
           [
-            ["wholesale", "도매 가능 — 재고를 두고 연 5천만원 이상 구매 가능(딜러십 계약 함께 진행)"],
+            ["wholesale", "도매 가능 — 재고를 두고 연 5천만원 이상 구매 가능(도매 구매에는 별도의 딜러십 계약이 필요합니다)"],
             ["retail", "도소매 — 재고를 두기 어렵고 연 5천만원 미만 구매 예상(JOOLA 딜러 소개)"],
             ["none", "판매 불가 — 사업자에 판매업이 없음"],
           ] as const
@@ -294,10 +300,16 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
             <span>{label}</span>
           </label>
         ))}
+      </Section>
+
+      <Section title="기존 파트너 이력">
         <Check
-          name="demo_package_intent"
-          label="데모 패키지(패들 16개·신발 2족, 220만원 부가세 포함) 구매를 희망합니다 — Pro Court는 필수이며, 구매하면 네트와 데모 장비가 완벽하게 갖춰져 운영이 훨씬 풍족해집니다"
+          name="prior_partner_claim"
+          label="이미 JOOLA 브랜드 파트너 시설을 운영 중인 대표자입니다(2호점·3호점 신청)"
         />
+        <p className="text-xs text-slate-500">
+          기존 시설에 문제가 없었던 이력이 담당자 확인으로 인정되면 총점에 5점이 더해집니다. 체크만으로는 확정되지 않습니다.
+        </p>
       </Section>
 
       <Section title="운영">
@@ -352,9 +364,16 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
       <Section title="예상 티어">
         <TierPreview input={tierInput} />
         <p className="text-xs text-slate-500">
-          예상 티어는 입력하신 내용으로 자동 계산한 결과입니다. 제출하신 내용은 JOOLA KOREA가 다시 검증한 뒤 최종 티어를
-          확정합니다.
+          예상 티어는 입력하신 내용으로 자동 계산한 결과이며 확정이 아닙니다. 제출하신 내용은 JOOLA KOREA가 다시 검증한 뒤
+          최종 티어와 혜택을 확정합니다.
         </p>
+      </Section>
+
+      <Section title="혜택·의무 안내 확인">
+        <p className="text-xs text-slate-600">
+          페이지 위쪽의 「브랜드 파트너 혜택·의무 안내」는 신청 단계의 안내이며, 정식 계약서는 별도로 체결합니다.
+        </p>
+        <Check name="benefit_notice" label="혜택·의무 안내를 읽고 이해했으며, 정식 계약서는 별도로 체결됨에 동의합니다" />
       </Section>
 
       <Section title="개인정보 수집·이용 동의">
@@ -366,7 +385,7 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
           <li>이용 목적: 브랜드 파트너 신청 검토와 티어 확정, 파트너십 계약 연락, 대관료 지급, 세무회계 프로그램에 파트너 정보 등록</li>
           <li>
             보관: 신청이 거절되면 개인정보·계좌·증빙 파일을 바로 삭제하고 시설명·지역·점수·거절 사유만 남깁니다. 승인된 경우
-            파트너십 기간 동안 보관합니다.
+            파트너십(계약) 기간 동안만 보관하며, 계약이 끝나면 삭제합니다.
           </li>
           <li>동의하지 않으실 수 있으며, 이 경우 신청이 접수되지 않습니다.</li>
         </ul>

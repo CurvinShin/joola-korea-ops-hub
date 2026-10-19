@@ -22,8 +22,9 @@ function input(overrides: Partial<TierInput>): TierInput {
     venueSuitable: true,
     salesCapability: "retail",
     wholesaleVerified: false,
-    demoPackagePurchase: false,
     proNetInstalled: false,
+    priorPartnerClaimed: false,
+    priorPartnerVerified: false,
     ...none,
     ...overrides,
   };
@@ -54,7 +55,7 @@ describe("지역×코트 수 수준", () => {
 describe("점수", () => {
   it("만점은 90점(도매 확인 + 모든 항목)", () => {
     const r = computeTier(
-      input({ ...all, salesCapability: "wholesale", wholesaleVerified: true, demoPackagePurchase: true, proNetInstalled: true })
+      input({ ...all, salesCapability: "wholesale", wholesaleVerified: true, proNetInstalled: true })
     );
     expect(r.score).toBe(90);
     expect(r.tier).toBe("pro");
@@ -110,5 +111,25 @@ describe("신청 단계 예상 티어와 조건 충족 시 티어", () => {
   it("도소매는 Pro 필수 조건(도매)을 채울 수 없어 조건 충족 시에도 Edge", () => {
     const i = input({ ...all, salesCapability: "retail" });
     expect(computePotentialTier(i).tier).toBe("edge");
+  });
+});
+
+describe("기존 파트너(2호점·3호점) 가산점", () => {
+  it("신청자가 응답만 해서는 점수에 들어가지 않는다", () => {
+    const base = computeTier(input({ priorPartnerClaimed: false }));
+    const claimedOnly = computeTier(input({ priorPartnerClaimed: true }));
+    expect(claimedOnly.score).toBe(base.score);
+    expect(claimedOnly.breakdown.bonus).toBe(0);
+  });
+  it("담당자가 확인하면 5점이 더해진다", () => {
+    const base = computeTier(input({}));
+    const verified = computeTier(input({ priorPartnerClaimed: true, priorPartnerVerified: true }));
+    expect(verified.breakdown.bonus).toBe(5);
+    expect(verified.score).toBe(base.score + 5);
+  });
+  it("신청서 미리보기(조건 충족 시)는 응답한 경우 5점을 더해 계산한다", () => {
+    const without = computePotentialTier(input({ priorPartnerClaimed: false }));
+    const withClaim = computePotentialTier(input({ priorPartnerClaimed: true }));
+    expect(withClaim.score).toBe(without.score + 5);
   });
 });
