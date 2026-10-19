@@ -346,8 +346,9 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                 {facilityEnded ? (
                   <form action={purgeWithId} className="space-y-3">
                     <p className="text-xs text-slate-500">
-                      신청서의 주소·사업자등록번호·대표자·연락처·이메일·계좌·SNS 정보와 첨부 파일이 바로 삭제됩니다. 시설명·지역·점수·티어·처리
-                      기록만 남습니다. 시설 정보에 적힌 담당자 연락처는 지워지지 않습니다. 되돌릴 수 없습니다.
+                      신청서의 주소·사업자등록번호·대표자·연락처·이메일·계좌·SNS 정보와 첨부 파일이 바로 삭제됩니다. 시설 정보에 복사된
+                      대표자·담당자 이름·이메일·전화·인스타그램도 함께 비워집니다. 시설명·지역·주소·코트 수·티어·점수·처리 기록만
+                      남습니다. 되돌릴 수 없습니다.
                     </p>
                     <div>
                       <Label htmlFor="confirm_name">확인을 위해 시설명을 그대로 입력하세요</Label>

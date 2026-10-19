@@ -413,9 +413,9 @@ export async function rejectPartnerApplication(id: string, formData: FormData) {
 // 4) 직원: 계약 종료 후 개인정보 삭제 (승인된 신청서)
 // ---------------------------------------------------------------------------
 // 안내문의 "계약이 끝나면 개인정보를 삭제한다"를 지키기 위한 기능이다.
-// 시설 상태가 '종료'일 때만 가능하고, 되돌릴 수 없다. 거절 때와 같은 항목을 지우며
-// 시설명·지역·점수·티어·처리 기록은 남긴다. 시설 정보(facilities)의 담당자 연락처는
-// 건드리지 않는다(필요하면 시설 화면에서 직접 고친다).
+// 시설 상태가 '종료'일 때만 가능하고, 되돌릴 수 없다. 거절 때와 같은 항목을 지우며,
+// 승인 때 시설 정보(facilities)로 복사된 대표자·담당자 연락처·인스타그램도 함께 비운다.
+// 시설명·지역·주소·코트 수·티어·점수·처리 기록은 남긴다.
 const purgeSchema = z.object({
   confirm_name: z.string().trim().min(1, "시설명을 입력해주세요"),
 });
@@ -446,6 +446,19 @@ export async function purgeApprovedPartnerData(id: string, formData: FormData) {
     throw new Error("시설의 파트너십 상태가 '종료'일 때만 개인정보를 삭제할 수 있습니다.");
   }
 
+  // 시설 정보 쪽을 먼저 비운다. 여기서 실패하면 신청서는 그대로라서 다시 시도할 수 있다.
+  const { error: facilityError } = await supabase
+    .from("facilities")
+    .update({
+      representative_name: null,
+      contact_name: null,
+      contact_email: null,
+      contact_phone: null,
+      instagram_handle: null,
+    })
+    .eq("id", app.facility_id);
+  if (facilityError) throw new Error(facilityError.message);
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("partner_applications")
@@ -474,5 +487,6 @@ export async function purgeApprovedPartnerData(id: string, formData: FormData) {
   if (paths.length > 0) await createAdminClient().storage.from(BUCKET).remove(paths);
 
   revalidatePath("/partner-applications");
+  revalidatePath("/facilities");
   redirect(`/partner-applications/${id}`);
 }
