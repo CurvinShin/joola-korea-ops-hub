@@ -252,7 +252,14 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                   <CardContent>
                     <form action={setBusinessNumberWithId} className="space-y-3">
                       <p className="text-xs text-slate-500">신청 때 비워 둔 번호입니다. 받은 뒤 입력해야 승인할 수 있습니다.</p>
-                      <Input name="business_number" placeholder="000-00-00000" required />
+                      <Input
+                        name="business_number"
+                        placeholder="000-00-00000"
+                        inputMode="numeric"
+                        pattern="\d{3}-?\d{2}-?\d{5}"
+                        title="숫자 10자리(예: 123-45-67890)"
+                        required
+                      />
                       <Button type="submit" variant="secondary" className="w-full">
                         저장
                       </Button>

@@ -49,7 +49,9 @@ export async function middleware(request: NextRequest) {
     // 옵시디안 자동 업데이트용 JSON 엔드포인트(/api/public-report/[token]/ops-summary).
     // 로그인 세션이 없는 스크립트가 호출하므로 같은 방식으로 열어두고, 접근 제어는
     // 라우트 안에서 PUBLIC_REPORT_TOKEN 비교로 한다.
-    request.nextUrl.pathname.startsWith("/api/public-report/");
+    request.nextUrl.pathname.startsWith("/api/public-report/") ||
+    // Vercel Cron이 로그인 없이 호출하는 정리 작업. 접근 제어는 라우트 안에서 CRON_SECRET으로 한다.
+    request.nextUrl.pathname.startsWith("/api/cron/");
 
   if (!user && !isAuthRoute && !isPublicReportRoute) {
     const redirectUrl = new URL("/login", request.url);

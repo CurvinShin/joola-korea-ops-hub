@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/purge-partner-uploads", "schedule": "0 18 * * *" }
+  ]
+}
