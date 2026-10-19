@@ -1,7 +1,7 @@
 // 브랜드 파트너(시설) 티어 자동 계산.
 //
 // 규칙의 원본은 옵시디안 `06 위키/가이드라인 - 브랜드 파트너십.md` 5번 항목이다
-// (2026-10-16 확정). 점수·경계값은 아래 TIER_CONFIG 한 곳에서만 바꾼다.
+// (2026-10-16 확정, 2026-10-19에 만점 100점·Pro 75/Edge 50으로 변경). 점수·경계값은 아래 TIER_CONFIG 한 곳에서만 바꾼다.
 // 순수 함수라서 서버(신청 접수)와 브라우저(신청서 미리보기) 양쪽에서 같은 결과를 낸다.
 
 import type { FacilityTier, KrRegion } from "@/lib/types/database.types";
@@ -17,7 +17,7 @@ export interface TierInput {
   venueSuitable: boolean;
   salesCapability: SalesCapability;
   // 딜러십 계약 + 초도 물량 구매를 마쳤는지. 신청 단계에서는 항상 false이고
-  // 담당자가 확인한 뒤에만 true가 된다(자가 응답으로 도매 20점을 받지 못하게).
+  // 담당자가 확인한 뒤에만 true가 된다(자가 응답으로 도매 25점을 받지 못하게).
   wholesaleVerified: boolean;
   proNetInstalled: boolean;
   // 기존 파트너 시설을 운영 중인 대표자라고 신청자가 답했는지(자가 응답).
@@ -53,17 +53,17 @@ export const TIER_CONFIG = {
     metro: { pro: 3, edge: 2, champion: 1 },
     province: { pro: 6, edge: 2, champion: 1 },
   },
-  salesPoints: { wholesaleVerified: 20, wholesaleUnverified: 10, retail: 10, none: 0 },
-  opsPoints: { regularLessons: 4, hostedEvents: 2, monthlyUsers800: 3, salesStaff: 1 },
+  salesPoints: { wholesaleVerified: 25, wholesaleUnverified: 15, retail: 10, none: 0 },
+  opsPoints: { regularLessons: 5, hostedEvents: 2, monthlyUsers800: 3, salesStaff: 5 },
   accessPoints: { subway10min: 4, bus5min: 2, residential: 3, parking: 1 },
   coachPoints: { dupr4: 3, nationalPodium: 3, snsReach: 2, certifiedOr3Years: 2 },
-  thresholds: { pro: 70, edge: 45 },
+  thresholds: { pro: 75, edge: 50 },
   // 2호점·3호점 신청 시, 기존 시설에 문제 없던 이력이 확인되면 총점에 더한다(2026-10-19 확정).
   priorPartnerBonus: 5,
 } as const;
 
-// 기본 만점. 기존 파트너 가산점(TIER_CONFIG.priorPartnerBonus)은 이 점수 밖에서 더해진다.
-export const MAX_SCORE = 90;
+// 기본 만점(2026-10-19 90→100: 판매 20→25, 운영 10→15). 기존 파트너 가산점(TIER_CONFIG.priorPartnerBonus)은 이 점수 밖에서 더해진다.
+export const MAX_SCORE = 100;
 
 const METRO_REGIONS: KrRegion[] = ["gyeonggi", "incheon"];
 

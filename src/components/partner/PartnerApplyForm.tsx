@@ -122,7 +122,7 @@ function TierPreview({ input }: { input: TierInput | null }) {
       )}
       {input.salesCapability === "wholesale" && (
         <p className="text-xs text-slate-500">
-          도매 가능은 딜러십 계약과 초도 구매를 마친 뒤에 20점으로 인정되며, 지금은 10점으로 계산됩니다.
+          도매 가능은 딜러십 계약과 초도 구매를 마친 뒤에 25점으로 인정되며, 지금은 15점으로 계산됩니다.
         </p>
       )}
     </div>

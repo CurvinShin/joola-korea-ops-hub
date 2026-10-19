@@ -33,7 +33,7 @@ const statusTone: Record<PartnerApplicationStatus, "amber" | "green" | "red"> = 
 };
 
 const salesLabel: Record<PartnerApplication["sales_capability"], string> = {
-  wholesale: "도매 가능(신청 단계 10점, 딜러십·초도 구매 확인 시 20점)",
+  wholesale: "도매 가능(신청 단계 15점, 딜러십·초도 구매 확인 시 25점)",
   retail: "도소매",
   none: "판매 불가",
 };

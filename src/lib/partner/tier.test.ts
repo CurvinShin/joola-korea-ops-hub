@@ -53,35 +53,35 @@ describe("지역×코트 수 수준", () => {
 });
 
 describe("점수", () => {
-  it("만점은 90점(도매 확인 + 모든 항목)", () => {
+  it("만점은 100점(도매 확인 + 모든 항목)", () => {
     const r = computeTier(
       input({ ...all, salesCapability: "wholesale", wholesaleVerified: true, proNetInstalled: true })
     );
-    expect(r.score).toBe(90);
+    expect(r.score).toBe(100);
     expect(r.tier).toBe("pro");
   });
-  it("도매는 확인 전 10점, 확인 후 20점", () => {
-    expect(computeTier(input({ salesCapability: "wholesale" })).breakdown.sales).toBe(10);
-    expect(computeTier(input({ salesCapability: "wholesale", wholesaleVerified: true })).breakdown.sales).toBe(20);
+  it("도매는 확인 전 15점, 확인 후 25점", () => {
+    expect(computeTier(input({ salesCapability: "wholesale" })).breakdown.sales).toBe(15);
+    expect(computeTier(input({ salesCapability: "wholesale", wholesaleVerified: true })).breakdown.sales).toBe(25);
   });
   it("개인 차량으로만 갈 수 있으면 접근성 전체 0점", () => {
     const r = computeTier(input({ access: { ...all.access, carOnly: true } }));
     expect(r.breakdown.access).toBe(0);
   });
-  it("운영 능력 만점 10점(정기 레슨 4 + 대회 2 + 이용자 3 + 세일즈 인력 1)", () => {
-    expect(computeTier(input({ ops: all.ops })).breakdown.ops).toBe(10);
+  it("운영 능력 만점 15점(정기 레슨 5 + 대회 2 + 이용자 3 + 세일즈 인력 5)", () => {
+    expect(computeTier(input({ ops: all.ops })).breakdown.ops).toBe(15);
   });
 });
 
 describe("티어 판정", () => {
-  it("70점 이상이어도 Pro 필수 조건이 없으면 Edge", () => {
+  it("75점 이상이어도 Pro 필수 조건이 없으면 Edge", () => {
     const r = computeTier(input({ ...all, salesCapability: "wholesale", wholesaleVerified: true }));
-    expect(r.score).toBeGreaterThanOrEqual(70);
+    expect(r.score).toBeGreaterThanOrEqual(75);
     expect(r.proRequirementsMet).toBe(false);
     expect(r.tier).toBe("edge");
   });
-  it("45~69점은 Edge, 45점 미만은 Champion", () => {
-    // 서울 1코트(25) + 도소매(10) + 운영 10 = 45
+  it("50~74점은 Edge, 50점 미만은 Champion", () => {
+    // 서울 1코트(25) + 도소매(10) + 운영 15 = 50
     expect(computeTier(input({ courtsCount: 1, ops: all.ops })).tier).toBe("edge");
     // 서울 1코트(25) + 도소매(10) = 35
     expect(computeTier(input({ courtsCount: 1 })).tier).toBe("champion");
