@@ -24,11 +24,28 @@ const FILE_FIELDS: { name: string; kind: PartnerApplicationAttachment["kind"]; l
   { name: "file_sns_capture", kind: "sns_capture", label: "SNS·DUPR 캡처 (선택)", hint: "아래 ID를 적으셨다면 생략해도 됩니다" },
 ];
 
-function Check({ name, label }: { name: string; label: string }) {
+// 필수 항목 표시(빨간 별)
+function Req() {
+  return (
+    <span className="ml-0.5 text-red-500" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
+function Check({ name, label, required }: { name: string; label: string; required?: boolean }) {
   return (
     <label className="flex items-start gap-2 text-sm text-slate-700">
-      <input type="checkbox" name={name} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-      <span>{label}</span>
+      <input
+        type="checkbox"
+        name={name}
+        required={required}
+        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+      />
+      <span>
+        {label}
+        {required && <Req />}
+      </span>
     </label>
   );
 }
@@ -205,14 +222,24 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
         </label>
       </div>
 
+      <p className="text-xs text-slate-500">
+        <span className="text-red-500">*</span> 표시는 반드시 입력해야 하는 항목입니다.
+      </p>
+
       <Section title="시설 정보">
         <div>
-          <Label htmlFor="facility_name">시설명</Label>
+          <Label htmlFor="facility_name">
+              시설명
+              <Req />
+            </Label>
           <Input id="facility_name" name="facility_name" required />
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <Label htmlFor="region">지역 (시/도)</Label>
+            <Label htmlFor="region">
+              지역 (시/도)
+              <Req />
+            </Label>
             <Select id="region" name="region" required defaultValue="">
               <option value="" disabled>
                 선택해주세요
@@ -225,12 +252,18 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
             </Select>
           </div>
           <div>
-            <Label htmlFor="courts_count">대관·경기가 가능한 코트 수</Label>
+            <Label htmlFor="courts_count">
+              대관·경기가 가능한 코트 수
+              <Req />
+            </Label>
             <Input id="courts_count" name="courts_count" type="number" min={0} max={100} required />
           </div>
         </div>
         <div>
-          <Label htmlFor="address">주소</Label>
+          <Label htmlFor="address">
+              주소
+              <Req />
+            </Label>
           <Input id="address" name="address" required />
         </div>
         <Check name="venue_suitable" label="천장 높이와 코트 앞뒤 공간이 대관·경기를 하기에 충분합니다" />
@@ -247,11 +280,17 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
             <Input id="business_type" name="business_type" />
           </div>
           <div>
-            <Label htmlFor="representative_name">대표자 이름</Label>
+            <Label htmlFor="representative_name">
+              대표자 이름
+              <Req />
+            </Label>
             <Input id="representative_name" name="representative_name" required />
           </div>
           <div>
-            <Label htmlFor="representative_phone">대표자 연락처</Label>
+            <Label htmlFor="representative_phone">
+              대표자 연락처
+              <Req />
+            </Label>
             <Input id="representative_phone" name="representative_phone" type="tel" required />
           </div>
           <div>
@@ -264,7 +303,10 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
           </div>
         </div>
         <div>
-          <Label htmlFor="email">이메일</Label>
+          <Label htmlFor="email">
+              이메일
+              <Req />
+            </Label>
           <Input id="email" name="email" type="email" required />
         </div>
         <p className="text-xs text-slate-500">파트너십 계약은 사업자 대표가 계약 주체가 되어야 하며, 직원 명의로는 신청할 수 없습니다.</p>
@@ -273,21 +315,30 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
       <Section title="정산 계좌 (법인/개인 사업자)">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <Label htmlFor="bank_name">은행명</Label>
+            <Label htmlFor="bank_name">
+              은행명
+              <Req />
+            </Label>
             <Input id="bank_name" name="bank_name" required />
           </div>
           <div>
-            <Label htmlFor="account_holder">예금주</Label>
+            <Label htmlFor="account_holder">
+              예금주
+              <Req />
+            </Label>
             <Input id="account_holder" name="account_holder" required />
           </div>
           <div>
-            <Label htmlFor="account_number">계좌번호</Label>
+            <Label htmlFor="account_number">
+              계좌번호
+              <Req />
+            </Label>
             <Input id="account_number" name="account_number" inputMode="numeric" required />
           </div>
         </div>
       </Section>
 
-      <Section title="제품 판매">
+      <Section title="제품 판매 (필수)">
         {(
           [
             ["wholesale", "도매 가능 — 재고를 두고 연 5천만원 이상 구매 가능(도매 구매에는 별도의 딜러십 계약이 필요합니다)"],
@@ -373,7 +424,7 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
         <p className="text-xs text-slate-600">
           페이지 위쪽의 「브랜드 파트너 혜택·의무 안내」는 신청 단계의 안내이며, 정식 계약서는 별도로 체결합니다.
         </p>
-        <Check name="benefit_notice" label="혜택·의무 안내를 읽고 이해했으며, 정식 계약서는 별도로 체결됨에 동의합니다" />
+        <Check name="benefit_notice" required label="혜택·의무 안내를 읽고 이해했으며, 정식 계약서는 별도로 체결됨에 동의합니다" />
       </Section>
 
       <Section title="개인정보 수집·이용 동의">
@@ -389,7 +440,7 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
           </li>
           <li>동의하지 않으실 수 있으며, 이 경우 신청이 접수되지 않습니다.</li>
         </ul>
-        <Check name="consent" label="위 내용을 확인했고 개인정보 수집·이용에 동의합니다" />
+        <Check name="consent" required label="위 내용을 확인했고 개인정보 수집·이용에 동의합니다" />
       </Section>
 
       {(uploadError || (state && !state.ok)) && (
