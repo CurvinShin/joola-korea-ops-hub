@@ -5,7 +5,7 @@ import { PRONET_PRICE, SYMMETRY_NET_PRICE, additionalNetsNeeded, freeProNets, ne
 // 문구를 바꾸면 CONTRACT_TEMPLATE_VERSION을 올려야 한다(이미 서명된 계약서에는 영향이 없다:
 // 계약서는 만들어질 때의 문구를 그대로 DB에 저장한다).
 
-export const CONTRACT_TEMPLATE_VERSION = "2026-10-21-2";
+export const CONTRACT_TEMPLATE_VERSION = "2026-10-21-3";
 
 // JOOLA(계약 당사자) 정보. 서명 전에 사실과 같은지 꼭 확인할 것.
 export const JOOLA_COMPANY = {
@@ -123,7 +123,7 @@ export function renderContract(input: ContractInput): RenderedContract {
         { text: `기본 지급품: JOOLA는 시설의 코트 ${courts}면을 기준으로 공 ${balls}개, 볼캐디 ${caddies}개, 배리어 ${barriers}개를 무상으로 지급합니다. (코트 1개당 공 100개, 코트 2개당 볼캐디 1개로 올림, 코트 1개당 배리어 3개) 지급품의 소유권은 브랜드 파트너에게 있습니다. 추가분은 도소매 할인가로 구매하실 수 있습니다.` },
         { text: `프로네트 지급: ${PRONET_FREE_TEXT[tier](free)}` },
         { text: `개점 패들 지급: ${OPENING_PADDLE_TEXT[tier]}` },
-        { text: `신제품 후원: JOOLA의 신제품이 출시될 때마다 브랜드 파트너는 JOOLA가 안내하는 방법으로 모델(쉐입)을 골라 요청하실 수 있으며, JOOLA는 ${models}모델(디스플레이 ${models}개, 시타 ${models}개)의 패들을 지원합니다.` },
+        { text: `신제품 후원: JOOLA의 신제품이 입고되면 JOOLA는 ${models}모델(디스플레이 ${models}개, 시타 ${models}개) 범위에서 패들을 지원합니다. 지원할 모델은 JOOLA의 재고 상황에 맞추어 브랜드 파트너와 JOOLA가 협의하여 정하며, 원하시는 모델이나 제품이 없을 수 있습니다.` },
         { text: `공 추가 지급: 브랜드 파트너가 반기 판매 실적을 증명하는 견적서를 이메일(${JOOLA_COMPANY.contactEmail})로 제출하여 요청하고, 판매수익이 코트당 300만원 이상이면 JOOLA는 코트당 공 100개를 추가로 지급합니다. 판매수익은 JOOLA 또는 공식 파트너로부터 받은 구매 견적서를 소비자가로 환산해 확인하며, 소비자에게 판매할 목적으로 구매한 제품만 인정합니다. 시설 운영용 제품, 대관료, 레슨비는 계산에서 뺍니다.` },
         { text: "지급품의 분실·파손에 대한 추가 지급, 보증, 교환은 하지 않습니다. 더 필요한 패들은 구매하셔야 합니다." },
       ],
