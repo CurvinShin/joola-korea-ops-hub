@@ -109,6 +109,8 @@ const RULES: Array<{ test: RegExp; label: (m: RegExpMatchArray) => string }> = [
   { test: /wristband/, label: () => "Wristband" },
   { test: /elementalpickleballnet/, label: () => "Elemental Net" },
   { test: /symmetry.*net/, label: () => "Symmetry Net" },
+  { test: /women'?s.*r4lly|r4lly.*women/, label: () => "Women's R4LLY Shoes" },
+  { test: /men'?s.*r4lly/, label: () => "Men's R4LLY Shoes" },
   { test: /crewsocks/, label: () => "Team Crew Socks" },
   { test: /anklesocks/, label: () => "Team Ankle Socks" },
 ];
