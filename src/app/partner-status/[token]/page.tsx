@@ -5,7 +5,8 @@ import { facilityTierLabel } from "@/lib/partner/tier";
 import { PartnerNetInquiryForm } from "@/components/partner/PartnerNetInquiryForm";
 import { ContractView } from "@/components/partner/ContractView";
 import { PartnerContractSign } from "@/components/partner/PartnerContractSign";
-import type { PartnerContractRow } from "@/lib/partner/contract-template";
+import { CONTRACT_TEMPLATE_VERSION, type PartnerContractRow } from "@/lib/partner/contract-template";
+import { upsertContractForApplication } from "@/lib/partner/contract-service";
 import {
   BRANDING_GUIDE,
   DESIGN_PROPOSAL_URL,
@@ -38,15 +39,26 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
     .maybeSingle();
   if (!app) notFound();
 
-  const { data: contractData } = await createAdminClient()
-    .from("partner_contracts")
-    .select("status, content, content_hash, partner_signed_at, partner_signer_name, joola_signed_at")
-    .eq("application_id", app.id)
-    .maybeSingle();
-  const contract = contractData as Pick<
+  const contractSelect =
+    "status, template_version, content, content_hash, partner_signed_at, partner_signer_name, joola_signed_at";
+  type ContractRow = Pick<
     PartnerContractRow,
-    "status" | "content" | "content_hash" | "partner_signed_at" | "partner_signer_name" | "joola_signed_at"
-  > | null;
+    "status" | "template_version" | "content" | "content_hash" | "partner_signed_at" | "partner_signer_name" | "joola_signed_at"
+  >;
+  const loadContract = async () => {
+    const { data } = await createAdminClient()
+      .from("partner_contracts")
+      .select(contractSelect)
+      .eq("application_id", app.id)
+      .maybeSingle();
+    return data as ContractRow | null;
+  };
+  let contract = await loadContract();
+  // 아직 아무도 서명하지 않은 계약서가 옛 문구 버전이면, 열 때 최신 문구로 다시 만든다(서명된 계약서는 그대로 둔다).
+  if (contract && contract.status === "pending_partner" && contract.template_version !== CONTRACT_TEMPLATE_VERSION) {
+    const r = await upsertContractForApplication(app.id);
+    if (r.ok) contract = await loadContract();
+  }
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
   const status = app.status as PartnerApplicationStatus;

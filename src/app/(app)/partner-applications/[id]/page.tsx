@@ -16,6 +16,7 @@ import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { JoolaSignLinkButton } from "@/components/partner/JoolaSignLinkButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { krRegionLabel, partnerApplicationStatusLabel } from "@/lib/utils/labels";
@@ -282,6 +283,7 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                     value={`${contract.partner_signer_name ?? ""} · ${new Date(contract.partner_signed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`}
                   />
                 )}
+                {contract?.status === "pending_joola" && <JoolaSignLinkButton applicationId={app.id} />}
                 {contract?.joola_signed_at && (
                   <InfoRow label="JOOLA 서명" value={new Date(contract.joola_signed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />
                 )}
