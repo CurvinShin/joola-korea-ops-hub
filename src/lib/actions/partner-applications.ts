@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computePotentialTier, computeTier, type TierInput } from "@/lib/partner/tier";
+import { normalizeBusinessNumber } from "@/lib/partner/business-number";
 import { validateNetQuantities } from "@/lib/partner/onboarding";
 import { upsertContractForApplication } from "@/lib/partner/contract-service";
 import { encryptSecret, hashIp, hashStatusToken, isValidInviteToken, newStatusToken } from "@/lib/partner/crypto";
@@ -111,7 +112,14 @@ const applicationSchema = z.object({
   facility_name: z.string().trim().min(1, "시설명을 입력해주세요").max(100),
   region: z.enum(KR_REGIONS, { errorMap: () => ({ message: "지역을 선택해주세요" }) }),
   address: z.string().trim().min(1, "주소를 입력해주세요").max(200),
-  business_number: optionalText,
+  // 비워 둘 수 있고, 적었다면 숫자 10자리(3-2-5) 형식이어야 한다.
+  business_number: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || normalizeBusinessNumber(v) !== null, {
+      message: "사업자등록번호는 000-00-00000 형식(숫자 10자리)으로 입력해주세요",
+    }),
   business_type: optionalText,
   representative_name: z.string().trim().min(1, "대표자 이름을 입력해주세요").max(50),
   representative_phone: z.string().trim().min(1, "대표자 연락처를 입력해주세요").max(30),
@@ -233,7 +241,7 @@ export async function submitPartnerApplication(_prev: SubmitResult | null, formD
       sales_capability: d.sales_capability,
       answers: { ...answers, benefit_notice_agreed: true, benefit_notice_version: BENEFIT_NOTICE_VERSION },
       address: d.address,
-      business_number: d.business_number || null,
+      business_number: d.business_number ? normalizeBusinessNumber(d.business_number) : null,
       business_type: d.business_type || null,
       representative_name: d.representative_name,
       representative_phone: d.representative_phone,
@@ -336,7 +344,10 @@ export async function approvePartnerApplication(id: string, formData: FormData) 
 }
 
 const businessNumberSchema = z.object({
-  business_number: z.string().trim().regex(/^[0-9-]{10,12}$/, "사업자등록번호는 숫자 10자리(- 포함 가능)로 입력해주세요"),
+  business_number: z
+    .string()
+    .trim()
+    .refine((v) => normalizeBusinessNumber(v) !== null, "사업자등록번호는 000-00-00000 형식(숫자 10자리)으로 입력해주세요"),
 });
 
 // 신청 때 비워 둔 사업자등록번호를 담당자가 받은 뒤 채워 넣는다(승인 전 필수).
@@ -346,7 +357,7 @@ export async function setPartnerBusinessNumber(id: string, formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.errors.map((e) => e.message).join(", "));
   const { error } = await supabase
     .from("partner_applications")
-    .update({ business_number: parsed.data.business_number, updated_at: new Date().toISOString() })
+    .update({ business_number: normalizeBusinessNumber(parsed.data.business_number), updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "pending");
   if (error) throw new Error(error.message);

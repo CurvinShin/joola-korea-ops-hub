@@ -273,7 +273,14 @@ export function PartnerApplyForm({ invite }: { invite: string }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="business_number">사업자등록번호 (없으면 비워 두세요)</Label>
-            <Input id="business_number" name="business_number" />
+            <Input
+              id="business_number"
+              name="business_number"
+              inputMode="numeric"
+              placeholder="000-00-00000"
+              pattern="\d{3}-?\d{2}-?\d{5}"
+              title="숫자 10자리(예: 123-45-67890)"
+            />
           </div>
           <div>
             <Label htmlFor="business_type">업태·종목</Label>
