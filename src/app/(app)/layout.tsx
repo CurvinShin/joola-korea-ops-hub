@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { WeeklyAnalysisBanner } from "@/components/analysis/WeeklyAnalysisBanner";
 import { NavCountsProvider } from "@/components/layout/NavCountsProvider";
 import { createClient } from "@/lib/supabase/server";
 import { EMPTY_NAV_COUNTS, fetchNavCounts } from "@/lib/nav-counts";
@@ -19,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Sidebar />
         <div className="flex flex-1 flex-col">
           <Topbar email={user?.email ?? null} />
+          {user && <WeeklyAnalysisBanner />}
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
       </div>

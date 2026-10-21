@@ -33,6 +33,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/sales", label: "영업" },
       { href: "/sales/product-categories", label: "제품군 분석" },
+      { href: "/sales/listing-priority", label: "스마트스토어 입점 우선순위" },
       { href: "/sales/smartstore-settlement", label: "월말 정산(스마트스토어)" },
       { href: "/claims", label: "환불·클레임" },
     ],
