@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computePotentialTier, computeTier, type TierInput } from "@/lib/partner/tier";
+import { validateNetQuantities } from "@/lib/partner/onboarding";
 import { encryptSecret, hashIp, hashStatusToken, isValidInviteToken, newStatusToken } from "@/lib/partner/crypto";
 import type { FacilityTier, PartnerApplicationAttachment } from "@/lib/types/database.types";
 
@@ -534,6 +535,10 @@ export async function undoPartnerApproval(id: string) {
       decided_by: null,
       decided_at: null,
       facility_id: null,
+      branding_ack_at: null,
+      pronet_purchase_qty: null,
+      symmetry_purchase_qty: null,
+      net_inquiry_at: null,
       answers: { ...(app.answers ?? {}), prior_partner_verified: false },
       updated_at: now,
     })
@@ -543,4 +548,57 @@ export async function undoPartnerApproval(id: string) {
   revalidatePath("/partner-applications");
   revalidatePath("/facilities");
   redirect(`/partner-applications/${id}`);
+}
+
+// ---------------------------------------------------------------------------
+// 승인 후 진행: 신청자가 상태 확인 페이지에서 브랜딩 안내 확인 + 네트 구매 수량을 남긴다.
+// 로그인이 없으므로 상태 확인 토큰(해시 비교)이 곧 인증이다. 승인된 신청서만 받는다.
+// ---------------------------------------------------------------------------
+export type NetInquiryResult = { ok: true } | { ok: false; error: string };
+
+const netInquirySchema = z.object({
+  token: z.string().min(1),
+  pronet_qty: z.coerce.number().int().min(0).max(100),
+  symmetry_qty: z.coerce.number().int().min(0).max(100),
+});
+
+export async function submitNetInquiry(_prev: NetInquiryResult | null, formData: FormData): Promise<NetInquiryResult> {
+  const parsed = netInquirySchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { ok: false, error: "수량을 0 이상의 숫자로 입력해 주세요." };
+  if (!flag(formData, "branding_ack")) return { ok: false, error: "브랜딩 안내를 확인하셨다면 체크해 주세요." };
+
+  const admin = createAdminClient();
+  const { data: app } = await admin
+    .from("partner_applications")
+    .select("id, status, final_tier, courts_count, pii_purged_at")
+    .eq("status_token_hash", hashStatusToken(parsed.data.token))
+    .maybeSingle();
+  if (!app || app.status !== "approved" || !app.final_tier || app.pii_purged_at) {
+    return { ok: false, error: "승인된 신청서를 찾을 수 없습니다." };
+  }
+
+  const check = validateNetQuantities(
+    app.final_tier as FacilityTier,
+    app.courts_count,
+    parsed.data.pronet_qty,
+    parsed.data.symmetry_qty,
+  );
+  if (!check.ok) return check;
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("partner_applications")
+    .update({
+      branding_ack_at: now,
+      pronet_purchase_qty: parsed.data.pronet_qty,
+      symmetry_purchase_qty: parsed.data.symmetry_qty,
+      net_inquiry_at: now,
+      updated_at: now,
+    })
+    .eq("id", app.id);
+  if (error) return { ok: false, error: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
+
+  revalidatePath(`/partner-applications/${app.id}`);
+  revalidatePath("/partner-applications");
+  return { ok: true };
 }

@@ -10,6 +10,7 @@ import {
   setPartnerBusinessNumber,
 } from "@/lib/actions/partner-applications";
 import { decryptSecret } from "@/lib/partner/crypto";
+import { additionalNetsNeeded, freeProNets, netTotal, won, type PartnerOnboardingFields } from "@/lib/partner/onboarding";
 import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput } from "@/lib/partner/tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -93,7 +94,7 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
   // 계좌 복호화와 첨부 임시 링크(60초)를 만든다.
   const { data } = await supabase.from("partner_applications").select("*").eq("id", params.id).maybeSingle();
   if (!data) notFound();
-  const app = data as PartnerApplication;
+  const app = data as PartnerApplication & PartnerOnboardingFields;
   const status = app.status;
 
   let accountNumber = "—";
@@ -239,6 +240,32 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
               {signed.length > 0 && <p className="text-xs text-slate-400">링크는 1분 동안만 열립니다. 만료되면 새로고침하세요.</p>}
             </CardContent>
           </Card>
+
+          {status === "approved" && app.final_tier && (
+            <Card>
+              <CardHeader>
+                <CardTitle>승인 후 진행 (브랜딩·네트)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <InfoRow label="무상 프로네트" value={`${freeProNets(app.final_tier, app.courts_count)}개`} />
+                <InfoRow label="추가로 필요한 코트" value={`${additionalNetsNeeded(app.final_tier, app.courts_count)}개`} />
+                <InfoRow
+                  label="브랜딩 안내 확인"
+                  value={app.branding_ack_at ? new Date(app.branding_ack_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "아직 확인 전"}
+                />
+                {app.net_inquiry_at ? (
+                  <>
+                    <InfoRow label="프로네트 구매" value={`${app.pronet_purchase_qty ?? 0}개`} />
+                    <InfoRow label="시미트리 네트 구매" value={`${app.symmetry_purchase_qty ?? 0}개`} />
+                    <InfoRow label="예상 금액" value={`${won(netTotal(app.pronet_purchase_qty ?? 0, app.symmetry_purchase_qty ?? 0))} (부가세 포함)`} />
+                    <InfoRow label="문의 접수" value={new Date(app.net_inquiry_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">신청자가 아직 네트 수량을 입력하지 않았습니다.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
