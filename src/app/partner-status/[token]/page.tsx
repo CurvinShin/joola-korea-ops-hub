@@ -54,6 +54,12 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
     return data as ContractRow | null;
   };
   let contract = await loadContract();
+  // 계약서 기능이 생기기 전에 이미 네트 문의를 저장한 신청자는 계약서가 아직 없다. 열 때 한 번 만들어 준다
+  // (주소·사업자등록번호·대표자가 비어 있으면 만들어지지 않고 '준비 중'으로 보인다).
+  if (!contract && app.status === "approved" && app.final_tier && !app.pii_purged_at && app.net_inquiry_at) {
+    const r = await upsertContractForApplication(app.id);
+    if (r.ok) contract = await loadContract();
+  }
   // 아직 아무도 서명하지 않은 계약서가 옛 문구 버전이면, 열 때 최신 문구로 다시 만든다(서명된 계약서는 그대로 둔다).
   if (contract && contract.status === "pending_partner" && contract.template_version !== CONTRACT_TEMPLATE_VERSION) {
     const r = await upsertContractForApplication(app.id);

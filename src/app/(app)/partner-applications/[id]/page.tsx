@@ -16,6 +16,7 @@ import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { StatusLinkButton } from "@/components/partner/StatusLinkButton";
 import { JoolaSignLinkButton } from "@/components/partner/JoolaSignLinkButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
@@ -179,6 +180,16 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {!app.pii_purged_at && (status === "pending" || status === "approved") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>신청자 상태 확인 링크</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StatusLinkButton applicationId={app.id} facilityName={app.facility_name} />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>자동 계산(신청자 자가 응답 기준)</CardTitle>

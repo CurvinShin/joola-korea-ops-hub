@@ -190,6 +190,23 @@ export async function signContractAsJoola(_prev: SignResult | null, formData: Fo
     return { ok: false, error: "서명을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
   }
 
+  // 계약이 체결되면 신청서로 만들어진 '협의중' 시설을 '활성'으로 바꾼다.
+  // 이미 활성·종료 등으로 직원이 바꾼 시설은 건드리지 않는다. 되돌리려면 시설 화면에서 상태를 직접 고친다.
+  const { data: linked } = await admin
+    .from("partner_applications")
+    .select("facility_id")
+    .eq("id", contract.application_id)
+    .maybeSingle();
+  if (linked?.facility_id) {
+    await admin
+      .from("facilities")
+      .update({ partnership_status: "active", updated_at: now })
+      .eq("id", linked.facility_id)
+      .eq("partnership_status", "in_discussion");
+    revalidatePath("/facilities");
+    revalidatePath(`/facilities/${linked.facility_id}`);
+  }
+
   revalidatePath(`/partner-applications/${contract.application_id}`);
   revalidatePath(`/contract-sign/${parsed.data.token}`);
   return { ok: true };

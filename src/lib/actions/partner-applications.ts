@@ -631,3 +631,29 @@ export async function submitNetInquiry(_prev: NetInquiryResult | null, formData:
   revalidatePath(`/partner-status/${parsed.data.token}`);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// 6) 직원: 신청자 상태 확인 링크 다시 만들기
+// ---------------------------------------------------------------------------
+// DB에는 링크(토큰)의 해시만 있어서 원래 링크를 다시 보여 줄 수는 없다. 링크를 잃어버린 신청자에게는
+// 새 링크를 만들어 전달한다. 새로 만들면 이전 링크는 더 이상 열리지 않는다(토큰 해시를 교체).
+export type StatusLinkResult = { ok: true; url: string } | { ok: false; error: string };
+
+export async function regenerateStatusLink(applicationId: string): Promise<StatusLinkResult> {
+  const supabase = createClient();
+  const token = newStatusToken();
+  const { data, error } = await supabase
+    .from("partner_applications")
+    .update({ status_token_hash: hashStatusToken(token), updated_at: new Date().toISOString() })
+    .eq("id", applicationId)
+    .is("pii_purged_at", null)
+    .in("status", ["pending", "approved"])
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { ok: false, error: "링크를 만들지 못했습니다. 개인정보가 삭제되었거나 거절된 신청서일 수 있습니다." };
+  }
+  const h = headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "joola-korea-ops-hub.vercel.app";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  return { ok: true, url: `${proto}://${host}/partner-status/${token}` };
+}
