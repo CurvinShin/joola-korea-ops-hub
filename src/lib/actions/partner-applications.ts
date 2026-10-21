@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computePotentialTier, computeTier, type TierInput } from "@/lib/partner/tier";
+import { validateNetQuantities } from "@/lib/partner/onboarding";
+import { upsertContractForApplication } from "@/lib/partner/contract-service";
 import { encryptSecret, hashIp, hashStatusToken, isValidInviteToken, newStatusToken } from "@/lib/partner/crypto";
 import type { FacilityTier, PartnerApplicationAttachment } from "@/lib/types/database.types";
 
@@ -507,6 +509,20 @@ export async function undoPartnerApproval(id: string) {
   if (!app) throw new Error("승인된 신청서를 찾을 수 없습니다.");
   if (app.pii_purged_at) throw new Error("개인정보가 이미 삭제되어 승인을 취소할 수 없습니다.");
 
+  // 신청자가 계약서에 서명했다면 승인을 취소할 수 없다. 서명 전의 계약서는 함께 지운다.
+  const { data: contract } = await supabase
+    .from("partner_contracts")
+    .select("id, partner_signed_at")
+    .eq("application_id", id)
+    .maybeSingle();
+  if (contract?.partner_signed_at) {
+    throw new Error("신청자가 계약서에 서명해서 승인을 취소할 수 없습니다.");
+  }
+  if (contract) {
+    const { error: contractDelError } = await supabase.from("partner_contracts").delete().eq("id", contract.id);
+    if (contractDelError) throw new Error(`계약서를 지우지 못했습니다: ${contractDelError.message}`);
+  }
+
   if (app.facility_id) {
     const { data: facility } = await supabase
       .from("facilities")
@@ -534,6 +550,10 @@ export async function undoPartnerApproval(id: string) {
       decided_by: null,
       decided_at: null,
       facility_id: null,
+      branding_ack_at: null,
+      pronet_purchase_qty: null,
+      symmetry_purchase_qty: null,
+      net_inquiry_at: null,
       answers: { ...(app.answers ?? {}), prior_partner_verified: false },
       updated_at: now,
     })
@@ -543,4 +563,97 @@ export async function undoPartnerApproval(id: string) {
   revalidatePath("/partner-applications");
   revalidatePath("/facilities");
   redirect(`/partner-applications/${id}`);
+}
+
+// ---------------------------------------------------------------------------
+// 승인 후 진행: 신청자가 상태 확인 페이지에서 브랜딩 안내 확인 + 네트 구매 수량을 남긴다.
+// 로그인이 없으므로 상태 확인 토큰(해시 비교)이 곧 인증이다. 승인된 신청서만 받는다.
+// ---------------------------------------------------------------------------
+export type NetInquiryResult = { ok: true } | { ok: false; error: string };
+
+const netInquirySchema = z.object({
+  token: z.string().min(1),
+  pronet_qty: z.coerce.number().int().min(0).max(100),
+  symmetry_qty: z.coerce.number().int().min(0).max(100),
+});
+
+export async function submitNetInquiry(_prev: NetInquiryResult | null, formData: FormData): Promise<NetInquiryResult> {
+  const parsed = netInquirySchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { ok: false, error: "수량을 0 이상의 숫자로 입력해 주세요." };
+  if (!flag(formData, "branding_ack")) return { ok: false, error: "브랜딩 안내를 확인하셨다면 체크해 주세요." };
+
+  const admin = createAdminClient();
+  const { data: app } = await admin
+    .from("partner_applications")
+    .select("id, status, final_tier, courts_count, pii_purged_at")
+    .eq("status_token_hash", hashStatusToken(parsed.data.token))
+    .maybeSingle();
+  if (!app || app.status !== "approved" || !app.final_tier || app.pii_purged_at) {
+    return { ok: false, error: "승인된 신청서를 찾을 수 없습니다." };
+  }
+
+  const { data: signedContract } = await admin
+    .from("partner_contracts")
+    .select("id")
+    .eq("application_id", app.id)
+    .not("partner_signed_at", "is", null)
+    .maybeSingle();
+  if (signedContract) {
+    return { ok: false, error: "계약서에 서명하신 뒤에는 수량을 고칠 수 없습니다. 담당자에게 문의해 주세요." };
+  }
+
+  const check = validateNetQuantities(
+    app.final_tier as FacilityTier,
+    app.courts_count,
+    parsed.data.pronet_qty,
+    parsed.data.symmetry_qty,
+  );
+  if (!check.ok) return check;
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("partner_applications")
+    .update({
+      branding_ack_at: now,
+      pronet_purchase_qty: parsed.data.pronet_qty,
+      symmetry_purchase_qty: parsed.data.symmetry_qty,
+      net_inquiry_at: now,
+      updated_at: now,
+    })
+    .eq("id", app.id);
+  if (error) return { ok: false, error: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
+
+  // 네트 문의가 저장되면 계약서를 만든다(필요한 정보가 비어 있으면 만들지 않고, 화면에 '준비 중'으로 보인다).
+  await upsertContractForApplication(app.id);
+
+  revalidatePath(`/partner-applications/${app.id}`);
+  revalidatePath("/partner-applications");
+  revalidatePath(`/partner-status/${parsed.data.token}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// 6) 직원: 신청자 상태 확인 링크 다시 만들기
+// ---------------------------------------------------------------------------
+// DB에는 링크(토큰)의 해시만 있어서 원래 링크를 다시 보여 줄 수는 없다. 링크를 잃어버린 신청자에게는
+// 새 링크를 만들어 전달한다. 새로 만들면 이전 링크는 더 이상 열리지 않는다(토큰 해시를 교체).
+export type StatusLinkResult = { ok: true; url: string } | { ok: false; error: string };
+
+export async function regenerateStatusLink(applicationId: string): Promise<StatusLinkResult> {
+  const supabase = createClient();
+  const token = newStatusToken();
+  const { data, error } = await supabase
+    .from("partner_applications")
+    .update({ status_token_hash: hashStatusToken(token), updated_at: new Date().toISOString() })
+    .eq("id", applicationId)
+    .is("pii_purged_at", null)
+    .in("status", ["pending", "approved"])
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { ok: false, error: "링크를 만들지 못했습니다. 개인정보가 삭제되었거나 거절된 신청서일 수 있습니다." };
+  }
+  const h = headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "joola-korea-ops-hub.vercel.app";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  return { ok: true, url: `${proto}://${host}/partner-status/${token}` };
 }
