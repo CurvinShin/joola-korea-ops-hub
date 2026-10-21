@@ -57,7 +57,7 @@ export function PartnerNetInquiryForm({ token, additionalNeeded, initialPronet, 
         <span>위 브랜딩 안내를 확인했습니다.</span>
       </label>
       {state && !state.ok && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{state.error}</p>}
-      {state?.ok && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">저장되었습니다. 담당자가 확인 후 견적서를 안내드립니다.</p>}
+      {state?.ok && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">저장되었습니다. 아래 3번에서 계약서를 확인해 주세요.</p>}
       <Button type="submit" className="w-full">
         {alreadySubmitted ? "수정해서 다시 저장" : "확인 내용 저장"}
       </Button>

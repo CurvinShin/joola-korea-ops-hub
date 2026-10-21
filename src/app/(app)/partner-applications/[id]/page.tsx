@@ -10,6 +10,7 @@ import {
   setPartnerBusinessNumber,
 } from "@/lib/actions/partner-applications";
 import { decryptSecret } from "@/lib/partner/crypto";
+import { contractStatusLabel, type PartnerContractStatus } from "@/lib/partner/contract-template";
 import { additionalNetsNeeded, freeProNets, netTotal, won, type PartnerOnboardingFields } from "@/lib/partner/onboarding";
 import { computeTier, facilityTierLabel, MAX_SCORE, TIER_CONFIG, type TierInput } from "@/lib/partner/tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -95,6 +96,17 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
   const { data } = await supabase.from("partner_applications").select("*").eq("id", params.id).maybeSingle();
   if (!data) notFound();
   const app = data as PartnerApplication & PartnerOnboardingFields;
+  const { data: contractRow } = await supabase
+    .from("partner_contracts")
+    .select("status, partner_signed_at, partner_signer_name, joola_signed_at")
+    .eq("application_id", params.id)
+    .maybeSingle();
+  const contract = contractRow as {
+    status: PartnerContractStatus;
+    partner_signed_at: string | null;
+    partner_signer_name: string | null;
+    joola_signed_at: string | null;
+  } | null;
   const status = app.status;
 
   let accountNumber = "—";
@@ -262,6 +274,16 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                   </>
                 ) : (
                   <p className="text-sm text-slate-400">신청자가 아직 네트 수량을 입력하지 않았습니다.</p>
+                )}
+                <InfoRow label="계약서" value={contract ? contractStatusLabel[contract.status] : "아직 생성 전"} />
+                {contract?.partner_signed_at && (
+                  <InfoRow
+                    label="신청자 서명"
+                    value={`${contract.partner_signer_name ?? ""} · ${new Date(contract.partner_signed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`}
+                  />
+                )}
+                {contract?.joola_signed_at && (
+                  <InfoRow label="JOOLA 서명" value={new Date(contract.joola_signed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />
                 )}
               </CardContent>
             </Card>

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computePotentialTier, computeTier, type TierInput } from "@/lib/partner/tier";
 import { validateNetQuantities } from "@/lib/partner/onboarding";
+import { upsertContractForApplication } from "@/lib/partner/contract-service";
 import { encryptSecret, hashIp, hashStatusToken, isValidInviteToken, newStatusToken } from "@/lib/partner/crypto";
 import type { FacilityTier, PartnerApplicationAttachment } from "@/lib/types/database.types";
 
@@ -508,6 +509,20 @@ export async function undoPartnerApproval(id: string) {
   if (!app) throw new Error("승인된 신청서를 찾을 수 없습니다.");
   if (app.pii_purged_at) throw new Error("개인정보가 이미 삭제되어 승인을 취소할 수 없습니다.");
 
+  // 신청자가 계약서에 서명했다면 승인을 취소할 수 없다. 서명 전의 계약서는 함께 지운다.
+  const { data: contract } = await supabase
+    .from("partner_contracts")
+    .select("id, partner_signed_at")
+    .eq("application_id", id)
+    .maybeSingle();
+  if (contract?.partner_signed_at) {
+    throw new Error("신청자가 계약서에 서명해서 승인을 취소할 수 없습니다.");
+  }
+  if (contract) {
+    const { error: contractDelError } = await supabase.from("partner_contracts").delete().eq("id", contract.id);
+    if (contractDelError) throw new Error(`계약서를 지우지 못했습니다: ${contractDelError.message}`);
+  }
+
   if (app.facility_id) {
     const { data: facility } = await supabase
       .from("facilities")
@@ -577,6 +592,16 @@ export async function submitNetInquiry(_prev: NetInquiryResult | null, formData:
     return { ok: false, error: "승인된 신청서를 찾을 수 없습니다." };
   }
 
+  const { data: signedContract } = await admin
+    .from("partner_contracts")
+    .select("id")
+    .eq("application_id", app.id)
+    .not("partner_signed_at", "is", null)
+    .maybeSingle();
+  if (signedContract) {
+    return { ok: false, error: "계약서에 서명하신 뒤에는 수량을 고칠 수 없습니다. 담당자에게 문의해 주세요." };
+  }
+
   const check = validateNetQuantities(
     app.final_tier as FacilityTier,
     app.courts_count,
@@ -598,7 +623,11 @@ export async function submitNetInquiry(_prev: NetInquiryResult | null, formData:
     .eq("id", app.id);
   if (error) return { ok: false, error: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
 
+  // 네트 문의가 저장되면 계약서를 만든다(필요한 정보가 비어 있으면 만들지 않고, 화면에 '준비 중'으로 보인다).
+  await upsertContractForApplication(app.id);
+
   revalidatePath(`/partner-applications/${app.id}`);
   revalidatePath("/partner-applications");
+  revalidatePath(`/partner-status/${parsed.data.token}`);
   return { ok: true };
 }

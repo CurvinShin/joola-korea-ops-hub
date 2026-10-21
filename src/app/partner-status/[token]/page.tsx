@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hashStatusToken } from "@/lib/partner/crypto";
 import { facilityTierLabel } from "@/lib/partner/tier";
 import { PartnerNetInquiryForm } from "@/components/partner/PartnerNetInquiryForm";
+import { ContractView } from "@/components/partner/ContractView";
+import { PartnerContractSign } from "@/components/partner/PartnerContractSign";
+import type { PartnerContractRow } from "@/lib/partner/contract-template";
 import {
   BRANDING_GUIDE,
   DESIGN_PROPOSAL_URL,
@@ -29,11 +32,22 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
   const { data: app } = await createAdminClient()
     .from("partner_applications")
     .select(
-      "facility_name, status, expected_tier, final_tier, decision_message, created_at, decided_at, courts_count, pii_purged_at, branding_ack_at, pronet_purchase_qty, symmetry_purchase_qty, net_inquiry_at",
+      "id, facility_name, status, expected_tier, final_tier, decision_message, created_at, decided_at, courts_count, pii_purged_at, branding_ack_at, pronet_purchase_qty, symmetry_purchase_qty, net_inquiry_at",
     )
     .eq("status_token_hash", hashStatusToken(params.token))
     .maybeSingle();
   if (!app) notFound();
+
+  const { data: contractData } = await createAdminClient()
+    .from("partner_contracts")
+    .select("status, content, content_hash, partner_signed_at, partner_signer_name, joola_signed_at")
+    .eq("application_id", app.id)
+    .maybeSingle();
+  const contract = contractData as Pick<
+    PartnerContractRow,
+    "status" | "content" | "content_hash" | "partner_signed_at" | "partner_signer_name" | "joola_signed_at"
+  > | null;
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
   const status = app.status as PartnerApplicationStatus;
   const tierName = (t: string | null) => (t ? facilityTierLabel[t as FacilityTier] : "담당자 검토 필요");
@@ -111,11 +125,43 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
             />
           </div>
 
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
             <h2 className="text-base font-semibold text-slate-900">3. 계약서</h2>
-            <p>
-              기본 지급품과 혜택은 계약서로 안내드립니다. 계약서가 준비되면 담당자가 별도로 연락드립니다.
-            </p>
+            {!app.net_inquiry_at && (
+              <p>위 2번의 네트 구매 문의를 저장하시면 계약서가 이 화면에 바로 열립니다.</p>
+            )}
+            {app.net_inquiry_at && !contract && (
+              <p className="rounded-lg bg-slate-50 p-3 text-slate-600">
+                계약서를 준비하고 있습니다. 사업자 정보 확인이 끝나면 이 화면에서 바로 서명하실 수 있습니다. 잠시 뒤 다시 확인해 주세요.
+              </p>
+            )}
+            {contract && (
+              <>
+                <p className="text-slate-600">
+                  진행 상태:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {contract.status === "pending_partner" && "서명 대기"}
+                    {contract.status === "pending_joola" && "서명 완료 · JOOLA KOREA 대표 서명 대기"}
+                    {contract.status === "signed" && "계약 체결 완료"}
+                    {contract.status === "void" && "무효"}
+                  </span>
+                </p>
+                <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <ContractView contract={contract.content} />
+                </div>
+                {contract.status === "pending_partner" && (
+                  <PartnerContractSign token={params.token} contentHash={contract.content_hash} />
+                )}
+                {contract.partner_signed_at && (
+                  <p className="text-xs text-slate-500">
+                    신청자 서명: {contract.partner_signer_name} · {fmtDate(contract.partner_signed_at)}
+                  </p>
+                )}
+                {contract.joola_signed_at && (
+                  <p className="text-xs text-slate-500">JOOLA KOREA 서명: {fmtDate(contract.joola_signed_at)}</p>
+                )}
+              </>
+            )}
           </div>
         </>
       )}
