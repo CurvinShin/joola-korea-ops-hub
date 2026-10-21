@@ -163,6 +163,17 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold text-slate-900">{app.facility_name}</h1>
           <Badge tone={statusTone[status]}>{partnerApplicationStatusLabel[status]}</Badge>
+          {contract && (
+            <Badge tone={contract.status === "signed" ? "green" : "amber"}>계약 {contractStatusLabel[contract.status]}</Badge>
+          )}
+          {contract?.status === "signed" && (
+            <a
+              href={`/api/partner-contracts/${app.id}/pdf`}
+              className="ml-auto rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              계약서 PDF 내려받기
+            </a>
+          )}
         </div>
       </div>
 

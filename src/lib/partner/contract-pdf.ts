@@ -207,3 +207,15 @@ export function contractPdfFileName(facilityName: string): { ascii: string; utf8
     utf8: encodeURIComponent(`JOOLA_브랜드파트너십_계약서_${safe}.pdf`),
   };
 }
+
+// 계약서 PDF 다운로드 응답(세 개의 다운로드 경로가 함께 쓴다).
+export function contractPdfResponse(bytes: Uint8Array, facilityName: string): Response {
+  const name = contractPdfFileName(facilityName);
+  return new Response(Buffer.from(bytes), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${name.ascii}"; filename*=UTF-8''${name.utf8}`,
+      "Cache-Control": "private, no-store",
+    },
+  });
+}

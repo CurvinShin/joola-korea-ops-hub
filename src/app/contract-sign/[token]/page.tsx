@@ -41,9 +41,17 @@ export default async function ContractSignPage({ params }: { params: { token: st
           <JoolaContractSign token={params.token} contentHash={contract.content_hash} />
         )}
         {contract.status === "signed" && (
-          <p className="rounded-lg bg-green-50 p-3 text-green-700">
-            계약이 체결되었습니다{contract.joola_signed_at ? ` (${fmt(contract.joola_signed_at)})` : ""}.
-          </p>
+          <div className="space-y-2 rounded-lg bg-green-50 p-3 text-green-700">
+            <p>
+              계약이 체결되었습니다{contract.joola_signed_at ? ` (${fmt(contract.joola_signed_at)})` : ""}.
+            </p>
+            <a
+              href={`/api/contract-sign-pdf/${params.token}`}
+              className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              서명된 계약서 PDF 내려받기
+            </a>
+          </div>
         )}
         {contract.status === "pending_partner" && (
           <p className="rounded-lg bg-slate-50 p-3 text-slate-600">아직 브랜드 파트너의 서명이 끝나지 않았습니다.</p>

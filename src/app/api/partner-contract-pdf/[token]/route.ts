@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashStatusToken } from "@/lib/partner/crypto";
-import { buildSignedContractPdf, contractPdfFileName, type SignedContractPdfInput } from "@/lib/partner/contract-pdf";
+import { buildSignedContractPdf, contractPdfResponse, type SignedContractPdfInput } from "@/lib/partner/contract-pdf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,12 +27,5 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   }
 
   const bytes = await buildSignedContractPdf({ facilityName: app.facility_name, ...contract } as SignedContractPdfInput);
-  const name = contractPdfFileName(app.facility_name);
-  return new Response(Buffer.from(bytes), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${name.ascii}"; filename*=UTF-8''${name.utf8}`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  return contractPdfResponse(bytes, app.facility_name);
 }

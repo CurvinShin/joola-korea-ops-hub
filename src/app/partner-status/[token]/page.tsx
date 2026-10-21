@@ -98,6 +98,19 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
         )}
       </div>
 
+      {contract?.status === "signed" && (
+        <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+          <p className="text-base font-semibold">계약이 체결되었습니다</p>
+          <p>서명된 계약서를 PDF로 내려받아 보관해 주세요.</p>
+          <a
+            href={`/api/partner-contract-pdf/${params.token}`}
+            className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            서명된 계약서 PDF 내려받기
+          </a>
+        </div>
+      )}
+
       {status === "approved" && app.final_tier && !app.pii_purged_at && (
         <>
           <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">

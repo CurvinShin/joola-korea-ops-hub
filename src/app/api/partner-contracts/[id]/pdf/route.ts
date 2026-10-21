@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { buildSignedContractPdf, contractPdfFileName, type SignedContractPdfInput } from "@/lib/partner/contract-pdf";
+import { buildSignedContractPdf, contractPdfResponse, type SignedContractPdfInput } from "@/lib/partner/contract-pdf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,12 +21,5 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const facilityName = app?.facility_name ?? "partner";
 
   const bytes = await buildSignedContractPdf({ facilityName, ...contract } as SignedContractPdfInput);
-  const name = contractPdfFileName(facilityName);
-  return new Response(Buffer.from(bytes), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${name.ascii}"; filename*=UTF-8''${name.utf8}`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  return contractPdfResponse(bytes, facilityName);
 }
