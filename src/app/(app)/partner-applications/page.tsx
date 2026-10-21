@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { facilityTierLabel } from "@/lib/partner/tier";
+import { PartnerReplyTemplates } from "@/components/partner/PartnerReplyTemplates";
+import { PARTNER_REPLY_TEMPLATES, buildApplyLink, fillReplyTemplate } from "@/lib/partner/reply-templates";
 import { krRegionLabel, partnerApplicationStatusLabel } from "@/lib/utils/labels";
 import type { FacilityTier, PartnerApplicationStatus } from "@/lib/types/database.types";
 
@@ -24,6 +26,14 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
     .eq("status", filter)
     .order("created_at", { ascending: false });
 
+  // 초대 코드는 서버에서만 읽고, 링크가 채워진 문구만 클라이언트로 넘긴다.
+  const applyLink = buildApplyLink(process.env.PARTNER_APPLY_INVITE_TOKEN);
+  const replyTemplates = PARTNER_REPLY_TEMPLATES.map((t) => ({
+    key: t.key,
+    title: t.title,
+    body: fillReplyTemplate(t.body, applyLink),
+  }));
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,6 +43,8 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
           거절하세요.
         </p>
       </div>
+
+      <PartnerReplyTemplates templates={replyTemplates} linkMissing={!applyLink} />
 
       <div className="flex gap-2">
         {STATUSES.map((s) => (
