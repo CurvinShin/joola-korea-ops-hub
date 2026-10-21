@@ -5,6 +5,7 @@ import { useFormState } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { SignaturePad } from "@/components/partner/SignaturePad";
+import { SealUpload } from "@/components/partner/SealUpload";
 import { signContractAsPartner, type SignResult } from "@/lib/actions/partner-contracts";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 export function PartnerContractSign({ token, contentHash }: Props) {
   const [state, formAction] = useFormState<SignResult | null, FormData>(signContractAsPartner, null);
   const [png, setPng] = useState("");
+  const [seal, setSeal] = useState("");
 
   if (state?.ok) {
     return (
@@ -30,15 +32,17 @@ export function PartnerContractSign({ token, contentHash }: Props) {
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="content_hash" value={contentHash} />
       <input type="hidden" name="signature_png" value={png} />
+      <input type="hidden" name="seal_png" value={seal} />
       <h4 className="text-sm font-semibold text-slate-900">전자서명</h4>
       <div>
-        <Label htmlFor="typed_name">대표자 이름 (신청서에 적은 이름과 같아야 합니다)</Label>
+        <Label htmlFor="typed_name">대표자 이름 (사업자등록증의 대표자 이름과 같아야 합니다)</Label>
         <Input id="typed_name" name="typed_name" autoComplete="off" required />
       </div>
       <div>
         <p className="mb-1 text-sm font-medium text-slate-700">서명</p>
         <SignaturePad onChange={setPng} />
       </div>
+      <SealUpload onChange={setSeal} />
       <label className="flex items-start gap-2 text-sm text-slate-700">
         <input type="checkbox" name="agree" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
         <span>위 계약서의 모든 내용을 읽고 이해했으며, 이에 동의하여 전자서명합니다.</span>

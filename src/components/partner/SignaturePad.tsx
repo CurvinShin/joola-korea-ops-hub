@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { imageFileToPng } from "@/components/partner/signature-image";
 
 // 서명 입력: 직접 그리기 또는 서명·도장 이미지 올리기. 결과는 PNG data URL로 onChange에 전달한다.
 // 신청자 서명과 JOOLA 대표 서명 화면에서 함께 쓴다.
-const MAX_CHARS = 280_000; // 서버 한도(300,000자)보다 조금 작게
-const MAX_WIDTH = 480;
-const MAX_HEIGHT = 200;
-
 type Mode = "draw" | "upload";
 
 export function SignaturePad({ onChange }: { onChange: (png: string) => void }) {
@@ -84,51 +81,18 @@ export function SignaturePad({ onChange }: { onChange: (png: string) => void }) 
     onChange("");
   }
 
-  // 올린 이미지를 흰 배경 PNG로 줄여서 쓴다(사진 원본은 너무 커서 저장하지 않는다).
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     setUploadError("");
     if (!file) return;
-    if (!/^image\/(png|jpe?g)$/.test(file.type)) {
-      setUploadError("PNG 또는 JPG 이미지만 올릴 수 있습니다.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError("파일이 너무 큽니다. 10MB 이하 이미지를 올려 주세요.");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let scale = Math.min(MAX_WIDTH / img.width, MAX_HEIGHT / img.height, 1);
-      let png = "";
-      for (let i = 0; i < 5; i++) {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(img.width * scale));
-        canvas.height = Math.max(1, Math.round(img.height * scale));
-        const ctx = canvas.getContext("2d");
-        if (!ctx) break;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        png = canvas.toDataURL("image/png");
-        if (png.length <= MAX_CHARS) break;
-        scale *= 0.7;
-      }
-      if (!png || png.length > MAX_CHARS) {
-        setUploadError("이미지를 처리하지 못했습니다. 더 단순한 서명 이미지를 올려 주세요.");
-        return;
-      }
+    try {
+      const png = await imageFileToPng(file);
       setUploadPreview(png);
       onChange(png);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      setUploadError("이미지를 읽지 못했습니다. 다른 파일을 올려 주세요.");
-    };
-    img.src = url;
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.");
+    }
   }
 
   const tab = (m: Mode, label: string) => (

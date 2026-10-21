@@ -24,6 +24,12 @@ const signSchema = z.object({
     .string()
     .startsWith("data:image/png;base64,")
     .max(MAX_SIGNATURE_CHARS),
+  // 직인은 선택. 안 올리면 빈 문자열로 온다.
+  seal_png: z
+    .string()
+    .max(MAX_SIGNATURE_CHARS)
+    .refine((v) => v === "" || v.startsWith("data:image/png;base64,"))
+    .optional(),
 });
 
 function normalizeName(s: string): string {
@@ -71,7 +77,7 @@ export async function signContractAsPartner(_prev: SignResult | null, formData: 
 
   // 서명자는 신청서의 대표자여야 한다(직원 서명 방지).
   if (!app.representative_name || normalizeName(parsed.data.typed_name) !== normalizeName(app.representative_name)) {
-    return { ok: false, error: "서명자는 신청서에 적은 대표자 이름과 같아야 합니다." };
+    return { ok: false, error: "서명자는 사업자등록증의 대표자 이름과 같아야 합니다." };
   }
 
   const now = new Date().toISOString();
@@ -82,6 +88,7 @@ export async function signContractAsPartner(_prev: SignResult | null, formData: 
       partner_signed_at: now,
       partner_signer_name: parsed.data.typed_name,
       partner_signature_png: parsed.data.signature_png,
+      partner_seal_png: parsed.data.seal_png ? parsed.data.seal_png : null,
       partner_ip_hash: hashIp(clientIp()),
       partner_user_agent: (headers().get("user-agent") ?? "").slice(0, 300),
       updated_at: now,
