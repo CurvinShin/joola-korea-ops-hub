@@ -46,6 +46,11 @@ export async function middleware(request: NextRequest) {
     // 각 페이지/서버 액션이 PARTNER_APPLY_INVITE_TOKEN·토큰 해시로 직접 한다.
     request.nextUrl.pathname.startsWith("/partner-apply/") ||
     request.nextUrl.pathname.startsWith("/partner-status/") ||
+    // JOOLA 대표 계약서 서명 링크(토큰 해시로 접근 제어).
+    request.nextUrl.pathname.startsWith("/contract-sign/") ||
+    // 신청자 본인용 계약서 PDF(상태 확인 토큰 해시로 접근 제어).
+    request.nextUrl.pathname.startsWith("/api/partner-contract-pdf/") ||
+    request.nextUrl.pathname.startsWith("/api/contract-sign-pdf/") ||
     // 옵시디안 자동 업데이트용 JSON 엔드포인트(/api/public-report/[token]/ops-summary).
     // 로그인 세션이 없는 스크립트가 호출하므로 같은 방식으로 열어두고, 접근 제어는
     // 라우트 안에서 PUBLIC_REPORT_TOKEN 비교로 한다.
