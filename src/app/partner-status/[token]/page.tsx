@@ -2,6 +2,21 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashStatusToken } from "@/lib/partner/crypto";
 import { facilityTierLabel } from "@/lib/partner/tier";
+import { PartnerNetInquiryForm } from "@/components/partner/PartnerNetInquiryForm";
+import { ContractView } from "@/components/partner/ContractView";
+import { PartnerContractSign } from "@/components/partner/PartnerContractSign";
+import { CONTRACT_TEMPLATE_VERSION, type PartnerContractRow } from "@/lib/partner/contract-template";
+import { upsertContractForApplication } from "@/lib/partner/contract-service";
+import {
+  BRANDING_GUIDE,
+  DESIGN_PROPOSAL_URL,
+  NET_DELIVERY_NOTICE,
+  PRONET_PRICE,
+  SYMMETRY_NET_PRICE,
+  additionalNetsNeeded,
+  freeNetPolicyText,
+  won,
+} from "@/lib/partner/onboarding";
 import type { FacilityTier, PartnerApplicationStatus } from "@/lib/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +32,40 @@ const statusText: Record<PartnerApplicationStatus, string> = {
 export default async function PartnerStatusPage({ params }: { params: { token: string } }) {
   const { data: app } = await createAdminClient()
     .from("partner_applications")
-    .select("facility_name, status, expected_tier, final_tier, decision_message, created_at, decided_at")
+    .select(
+      "id, facility_name, status, expected_tier, final_tier, decision_message, created_at, decided_at, courts_count, pii_purged_at, branding_ack_at, pronet_purchase_qty, symmetry_purchase_qty, net_inquiry_at",
+    )
     .eq("status_token_hash", hashStatusToken(params.token))
     .maybeSingle();
   if (!app) notFound();
+
+  const contractSelect =
+    "status, template_version, content, content_hash, partner_signed_at, partner_signer_name, joola_signed_at";
+  type ContractRow = Pick<
+    PartnerContractRow,
+    "status" | "template_version" | "content" | "content_hash" | "partner_signed_at" | "partner_signer_name" | "joola_signed_at"
+  >;
+  const loadContract = async () => {
+    const { data } = await createAdminClient()
+      .from("partner_contracts")
+      .select(contractSelect)
+      .eq("application_id", app.id)
+      .maybeSingle();
+    return data as ContractRow | null;
+  };
+  let contract = await loadContract();
+  // 계약서 기능이 생기기 전에 이미 네트 문의를 저장한 신청자는 계약서가 아직 없다. 열 때 한 번 만들어 준다
+  // (주소·사업자등록번호·대표자가 비어 있으면 만들어지지 않고 '준비 중'으로 보인다).
+  if (!contract && app.status === "approved" && app.final_tier && !app.pii_purged_at && app.net_inquiry_at) {
+    const r = await upsertContractForApplication(app.id);
+    if (r.ok) contract = await loadContract();
+  }
+  // 아직 아무도 서명하지 않은 계약서가 옛 문구 버전이면, 열 때 최신 문구로 다시 만든다(서명된 계약서는 그대로 둔다).
+  if (contract && contract.status === "pending_partner" && contract.template_version !== CONTRACT_TEMPLATE_VERSION) {
+    const r = await upsertContractForApplication(app.id);
+    if (r.ok) contract = await loadContract();
+  }
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
   const status = app.status as PartnerApplicationStatus;
   const tierName = (t: string | null) => (t ? facilityTierLabel[t as FacilityTier] : "담당자 검토 필요");
@@ -58,6 +103,107 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
           </div>
         )}
       </div>
+
+      {contract?.status === "signed" && (
+        <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+          <p className="text-base font-semibold">계약이 체결되었습니다</p>
+          <p>서명된 계약서를 PDF로 내려받아 보관해 주세요.</p>
+          <a
+            href={`/api/partner-contract-pdf/${params.token}`}
+            className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            서명된 계약서 PDF 내려받기
+          </a>
+        </div>
+      )}
+
+      {status === "approved" && app.final_tier && !app.pii_purged_at && (
+        <>
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+            <h2 className="text-base font-semibold text-slate-900">1. 코트 브랜딩</h2>
+            <a
+              href={DESIGN_PROPOSAL_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              브랜딩 시안 확인하기
+            </a>
+            <ul className="list-disc space-y-1 pl-5">
+              {BRANDING_GUIDE.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+            <h2 className="text-base font-semibold text-slate-900">2. 네트 구매 문의</h2>
+            <p>{freeNetPolicyText(app.final_tier as FacilityTier, app.courts_count)}</p>
+            <p>
+              프로네트는 {won(PRONET_PRICE)}(부가세 포함), 시미트리 네트는 {won(SYMMETRY_NET_PRICE)}(부가세 포함)에 구매하실 수 있습니다.
+            </p>
+            <ul className="list-disc space-y-1 rounded-lg bg-slate-50 p-3 pl-7 text-slate-600">
+              {NET_DELIVERY_NOTICE.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <PartnerNetInquiryForm
+              token={params.token}
+              additionalNeeded={additionalNetsNeeded(app.final_tier as FacilityTier, app.courts_count)}
+              initialPronet={app.pronet_purchase_qty}
+              initialSymmetry={app.symmetry_purchase_qty}
+              alreadySubmitted={!!app.net_inquiry_at}
+            />
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+            <h2 className="text-base font-semibold text-slate-900">3. 계약서</h2>
+            {!app.net_inquiry_at && (
+              <p>위 2번의 네트 구매 문의를 저장하시면 계약서가 이 화면에 바로 열립니다.</p>
+            )}
+            {app.net_inquiry_at && !contract && (
+              <p className="rounded-lg bg-slate-50 p-3 text-slate-600">
+                계약서를 준비하고 있습니다. 사업자 정보 확인이 끝나면 이 화면에서 바로 서명하실 수 있습니다. 잠시 뒤 다시 확인해 주세요.
+              </p>
+            )}
+            {contract && (
+              <>
+                <p className="text-slate-600">
+                  진행 상태:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {contract.status === "pending_partner" && "서명 대기"}
+                    {contract.status === "pending_joola" && "서명 완료 · JOOLA KOREA 대표 서명 대기"}
+                    {contract.status === "signed" && "계약 체결 완료"}
+                    {contract.status === "void" && "무효"}
+                  </span>
+                </p>
+                <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <ContractView contract={contract.content} />
+                </div>
+                {contract.status === "pending_partner" && (
+                  <PartnerContractSign token={params.token} contentHash={contract.content_hash} />
+                )}
+                {contract.partner_signed_at && (
+                  <p className="text-xs text-slate-500">
+                    신청자 서명: {contract.partner_signer_name} · {fmtDate(contract.partner_signed_at)}
+                  </p>
+                )}
+                {contract.joola_signed_at && (
+                  <p className="text-xs text-slate-500">JOOLA KOREA 서명: {fmtDate(contract.joola_signed_at)}</p>
+                )}
+                {contract.status === "signed" && (
+                  <a
+                    href={`/api/partner-contract-pdf/${params.token}`}
+                    className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  >
+                    서명된 계약서 PDF 내려받기
+                  </a>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       <p className="text-center text-[11px] text-slate-400">이 링크는 신청하신 분만 알고 있는 주소입니다 · 다른 사람과 공유하지 마세요</p>
     </main>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { facilityTierLabel } from "@/lib/partner/tier";
+import { contractStatusLabel, type PartnerContractStatus } from "@/lib/partner/contract-template";
 import { krRegionLabel, partnerApplicationStatusLabel } from "@/lib/utils/labels";
 import type { FacilityTier, PartnerApplicationStatus } from "@/lib/types/database.types";
 
@@ -23,6 +24,18 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
     .select("id, facility_name, region, courts_count, status, expected_score, expected_tier, final_tier, review_reasons, created_at")
     .eq("status", filter)
     .order("created_at", { ascending: false });
+
+  // 계약서 진행 상태(승인된 신청서에만 있다). RLS상 관리자만 읽을 수 있다.
+  const contractStatus = new Map<string, PartnerContractStatus>();
+  if ((rows ?? []).length > 0) {
+    const { data: contracts } = await supabase
+      .from("partner_contracts")
+      .select("application_id, status")
+      .in("application_id", (rows ?? []).map((r) => r.id));
+    for (const c of (contracts ?? []) as { application_id: string; status: PartnerContractStatus }[]) {
+      contractStatus.set(c.application_id, c.status);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -65,6 +78,7 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
                   <Th>점수</Th>
                   <Th>예상 티어</Th>
                   <Th>최종 티어</Th>
+                  <Th>계약</Th>
                   <Th>신청일</Th>
                 </Tr>
               </Thead>
@@ -86,12 +100,28 @@ export default async function PartnerApplicationsPage({ searchParams }: { search
                     <Td>{r.expected_score}</Td>
                     <Td>{r.expected_tier ? facilityTierLabel[r.expected_tier as FacilityTier] : "—"}</Td>
                     <Td>{r.final_tier ? facilityTierLabel[r.final_tier as FacilityTier] : "—"}</Td>
+                    <Td>
+                      {contractStatus.has(r.id) ? (
+                        <span className="flex items-center gap-2">
+                          <Badge tone={contractStatus.get(r.id) === "signed" ? "green" : "amber"}>
+                            {contractStatusLabel[contractStatus.get(r.id)!]}
+                          </Badge>
+                          {contractStatus.get(r.id) === "signed" && (
+                            <a href={`/api/partner-contracts/${r.id}/pdf`} className="text-xs text-brand-700 hover:underline">
+                              PDF
+                            </a>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </Td>
                     <Td>{new Date(r.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</Td>
                   </Tr>
                 ))}
                 {(rows ?? []).length === 0 && (
                   <Tr>
-                    <Td colSpan={7} className="text-center text-slate-400">
+                    <Td colSpan={8} className="text-center text-slate-400">
                       신청서가 없습니다.
                     </Td>
                   </Tr>
