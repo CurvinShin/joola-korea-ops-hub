@@ -5,8 +5,11 @@ import fontkit from "@pdf-lib/fontkit";
 import type { RenderedContract } from "./contract-template";
 
 // 서명이 끝난 계약서를 PDF로 만든다. SERVER-ONLY (fs로 한글 글꼴 파일을 읽는다).
-// 글꼴: assets/fonts/NotoSansKR-Regular.ttf (SIL Open Font License). next.config.js의
+// 글꼴: assets/fonts/NotoSansKR-Subset.ttf — Noto Sans KR Regular(SIL Open Font License)에서
+// 한글 전체·영문·숫자·기호만 남긴 파일(레이아웃 기능은 뺀 것). next.config.js의
 // outputFileTracingIncludes로 배포에 함께 포함된다.
+// 주의: pdf-lib의 { subset: true }는 한글 글꼴에서 글자를 빼먹고, 레이아웃 기능(GSUB/GPOS)이 있으면
+// 띄어쓰기가 넓어진다. 그래서 글꼴을 미리 줄여 두고 통째로 넣는다(subset: false).
 
 export interface SignedContractPdfInput {
   facilityName: string;
@@ -77,8 +80,8 @@ async function embedDataUrlPng(pdf: PDFDocument, dataUrl: string | null): Promis
 export async function buildSignedContractPdf(input: SignedContractPdfInput): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
-  const fontBytes = await readFile(path.join(process.cwd(), "assets", "fonts", "NotoSansKR-Regular.ttf"));
-  const font = await pdf.embedFont(fontBytes, { subset: true });
+  const fontBytes = await readFile(path.join(process.cwd(), "assets", "fonts", "NotoSansKR-Subset.ttf"));
+  const font = await pdf.embedFont(fontBytes, { subset: false });
   pdf.setTitle(`JOOLA 브랜드 파트너십 계약서 - ${input.facilityName}`);
   pdf.setProducer("JOOLA Korea Ops Hub");
 
