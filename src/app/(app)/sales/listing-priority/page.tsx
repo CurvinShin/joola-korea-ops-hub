@@ -9,6 +9,7 @@ import {
   unmarkFamilyListed,
 } from "@/lib/actions/listing-priority";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { StoreProductUploadForm } from "@/components/analysis/StoreProductUploadForm";
 import { CandidateTable } from "@/components/analysis/CandidateTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -29,7 +30,7 @@ export default async function ListingPriorityPage({
     fetchAllQuoteItems(supabase),
     fetchListedKeys(supabase),
     latestReportRanks(supabase),
-    supabase.from("smartstore_listed_families").select("family_key, label, marked_at").order("label"),
+    supabase.from("smartstore_listed_families").select("family_key, label, marked_at, source").order("label"),
     supabase
       .from("quote_analysis_reports")
       .select("id, generated_at, data_through, is_stale, acknowledged_at")
@@ -38,7 +39,7 @@ export default async function ListingPriorityPage({
   ]);
   const isAdmin = allowed === true;
   const result = buildListingPriority(rows, { listedKeys, previousRanks });
-  const listed = (listedRes.data ?? []) as { family_key: string; label: string; marked_at: string }[];
+  const listed = (listedRes.data ?? []) as { family_key: string; label: string; marked_at: string; source: string }[];
   const report = (reportRes.data?.[0] ?? null) as {
     id: string;
     generated_at: string;
@@ -123,6 +124,17 @@ export default async function ListingPriorityPage({
         </CardContent>
       </Card>
 
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>스마트스토어 상품 목록으로 등록된 제품 걸러내기</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StoreProductUploadForm />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>입점 후보 상위 {top.length}개 (아직 스마트스토어에 없는 제품군)</CardTitle>
@@ -145,6 +157,7 @@ export default async function ListingPriorityPage({
             {listed.map((l) => (
               <span key={l.family_key} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
                 {l.label}
+                {l.source === "store" && <span className="text-xs text-slate-400">파일</span>}
                 {isAdmin && (
                   <form action={unmarkFamilyListed}>
                     <input type="hidden" name="family_key" value={l.family_key} />
