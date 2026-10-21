@@ -31,7 +31,7 @@ const KR_REGIONS = [
 ] as const;
 
 // 신청자가 동의한 혜택·의무 안내문의 버전(= 확정일). 나중에 어떤 안내문에 동의했는지 구분하는 용도.
-const BENEFIT_NOTICE_VERSION = "2026-10-19";
+const BENEFIT_NOTICE_VERSION = "2026-10-21";
 
 const ANSWER_KEYS = [
   "ops_regularLessons", "ops_hostedEvents", "ops_monthlyUsers800", "ops_salesStaff",
