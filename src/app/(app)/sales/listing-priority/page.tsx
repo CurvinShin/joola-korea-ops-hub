@@ -3,20 +3,18 @@ import { buildListingPriority, MIN_DEALERS, RECENT_WINDOW_DAYS } from "@/lib/ana
 import { fetchAllQuoteItems, fetchListedKeys, latestReportRanks, daysBetween, seoulToday } from "@/lib/analysis/report-service";
 import {
   acknowledgeAnalysisReport,
-  markFamilyListed,
+  markFamiliesListed,
   runListingAnalysisNow,
   unacknowledgeAnalysisReport,
   unmarkFamilyListed,
 } from "@/lib/actions/listing-priority";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
+import { CandidateTable } from "@/components/analysis/CandidateTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
-const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
 const dateKst = (iso: string) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 
 export default async function ListingPriorityPage({
@@ -130,74 +128,7 @@ export default async function ListingPriorityPage({
           <CardTitle>입점 후보 상위 {top.length}개 (아직 스마트스토어에 없는 제품군)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>순위</Th>
-                  <Th>제품군</Th>
-                  <Th>분류</Th>
-                  <Th>점수</Th>
-                  <Th>구매 딜러</Th>
-                  <Th>주문</Th>
-                  <Th>총 수량</Th>
-                  <Th>최근 10주 수량</Th>
-                  <Th>딜러 공급가(중앙값)</Th>
-                  <Th>변동</Th>
-                  {isAdmin && <Th></Th>}
-                </Tr>
-              </Thead>
-              <tbody>
-                {top.map((c) => (
-                  <Tr key={c.key}>
-                    <Td>{c.rank}</Td>
-                    <Td>
-                      <div className="font-medium text-slate-900">{c.label}</div>
-                      <div className="max-w-xs truncate text-xs text-slate-500" title={c.sampleNames.join(" / ")}>
-                        {c.sampleNames[0]}
-                      </div>
-                    </Td>
-                    <Td>{c.category}</Td>
-                    <Td>{c.score.toFixed(1)}</Td>
-                    <Td>{c.dealers}곳</Td>
-                    <Td>{c.orders}건</Td>
-                    <Td>{c.quantity.toLocaleString("ko-KR")}</Td>
-                    <Td>{c.recentQuantity.toLocaleString("ko-KR")}</Td>
-                    <Td>{c.medianUnitPrice > 0 ? won(c.medianUnitPrice) : "-"}</Td>
-                    <Td>
-                      {c.rankChange === undefined ? (
-                        "-"
-                      ) : c.rankChange === null ? (
-                        <Badge tone="purple">신규</Badge>
-                      ) : c.rankChange > 0 ? (
-                        <span className="text-emerald-700">▲{c.rankChange}</span>
-                      ) : c.rankChange < 0 ? (
-                        <span className="text-red-600">▼{-c.rankChange}</span>
-                      ) : (
-                        "–"
-                      )}
-                    </Td>
-                    {isAdmin && (
-                      <Td>
-                        <form action={markFamilyListed}>
-                          <input type="hidden" name="family_key" value={c.key} />
-                          <input type="hidden" name="label" value={c.label} />
-                          <ConfirmButton size="sm" variant="secondary" message={`"${c.label}"을(를) 스마트스토어에 이미 등록된 제품으로 표시할까요?\n다음 분석부터 후보에서 빠집니다(아래 목록에서 되돌릴 수 있습니다).`}>
-                            등록됨으로 표시
-                          </ConfirmButton>
-                        </form>
-                      </Td>
-                    )}
-                  </Tr>
-                ))}
-                {top.length === 0 && (
-                  <Tr>
-                    <Td colSpan={isAdmin ? 11 : 10}>후보가 없습니다.</Td>
-                  </Tr>
-                )}
-              </tbody>
-            </Table>
-          </div>
+          <CandidateTable candidates={top} isAdmin={isAdmin} markAction={markFamiliesListed} />
           <p className="mt-3 text-xs text-slate-500">
             금액·공급가는 딜러 공급가(부가세 별도)입니다. 딜러가 산 수량이므로 소비자 수요와는 다를 수 있고, 재고는 반영하지
             않았습니다.

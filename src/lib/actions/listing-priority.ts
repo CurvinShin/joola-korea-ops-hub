@@ -56,21 +56,23 @@ export async function unacknowledgeAnalysisReport(formData: FormData): Promise<v
   back();
 }
 
-// 이미 스마트스토어에 올라간 제품군으로 표시 → 다음 분석부터 후보에서 빠진다.
-export async function markFamilyListed(formData: FormData): Promise<void> {
-  const key = String(formData.get("family_key") ?? "").trim();
-  const label = String(formData.get("label") ?? "").trim();
-  if (!key || !label) back({ error: "제품군 정보가 비어 있습니다." });
+// 체크박스로 고른 제품군을 한꺼번에 "등록됨"으로 표시한다. 라벨은 family_key별 hidden 입력(label:<key>)에서 읽는다.
+export async function markFamiliesListed(formData: FormData): Promise<void> {
+  const keys = Array.from(new Set(formData.getAll("family_key").map((v) => String(v).trim()).filter(Boolean)));
+  if (keys.length === 0) back({ error: "선택한 제품군이 없습니다." });
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("smartstore_listed_families")
-    .upsert({ family_key: key, label, marked_by: user?.id ?? null }, { onConflict: "family_key" });
+  const rows = keys.map((key) => ({
+    family_key: key,
+    label: String(formData.get(`label:${key}`) ?? "").trim() || key,
+    marked_by: user?.id ?? null,
+  }));
+  const { error } = await supabase.from("smartstore_listed_families").upsert(rows, { onConflict: "family_key" });
   if (error) back({ error: "등록됨으로 표시하지 못했습니다(관리자만 가능합니다)." });
   refresh();
-  back();
+  back({ ok: `${rows.length}개 제품군을 등록됨으로 표시했습니다. 아래 목록에서 되돌릴 수 있습니다.` });
 }
 
 // 되돌리기: 등록됨 표시를 지워 다시 후보에 넣는다.
