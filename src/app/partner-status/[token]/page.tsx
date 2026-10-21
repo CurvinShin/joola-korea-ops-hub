@@ -172,6 +172,14 @@ export default async function PartnerStatusPage({ params }: { params: { token: s
                 {contract.joola_signed_at && (
                   <p className="text-xs text-slate-500">JOOLA KOREA 서명: {fmtDate(contract.joola_signed_at)}</p>
                 )}
+                {contract.status === "signed" && (
+                  <a
+                    href={`/api/partner-contract-pdf/${params.token}`}
+                    className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  >
+                    서명된 계약서 PDF 내려받기
+                  </a>
+                )}
               </>
             )}
           </div>

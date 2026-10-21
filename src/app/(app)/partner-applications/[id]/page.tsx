@@ -284,6 +284,14 @@ export default async function PartnerApplicationDetailPage({ params }: { params:
                   />
                 )}
                 {contract?.status === "pending_joola" && <JoolaSignLinkButton applicationId={app.id} />}
+                {contract?.status === "signed" && (
+                  <a
+                    href={`/api/partner-contracts/${app.id}/pdf`}
+                    className="block rounded-lg bg-brand-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
+                  >
+                    서명된 계약서 PDF 내려받기
+                  </a>
+                )}
                 {contract?.joola_signed_at && (
                   <InfoRow label="JOOLA 서명" value={new Date(contract.joola_signed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />
                 )}
