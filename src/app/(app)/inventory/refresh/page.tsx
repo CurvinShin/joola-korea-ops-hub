@@ -44,7 +44,7 @@ export default async function StockRefreshPage() {
           <CardContent className="space-y-1 text-sm text-slate-600">
             <p>실사 기준일시: {formatDateTime(lastSnapshot.snapshot_at)}</p>
             <p>
-              파일: {lastSnapshot.filename} · 재고 갱신 {lastSnapshot.matched_count}건 · 미매칭 갱신{" "}
+              파일: {lastSnapshot.filename.normalize("NFC")} · 재고 갱신 {lastSnapshot.matched_count}건 · 미매칭 갱신{" "}
               {lastSnapshot.gap_updated_count}건 · 신규 미매칭 {lastSnapshot.gap_new_count}건
             </p>
             {lastSnapshot.uploaded_by && <p className="text-slate-400">처리: {lastSnapshot.uploaded_by}</p>}

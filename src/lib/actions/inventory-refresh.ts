@@ -126,7 +126,8 @@ export async function refreshInventoryFromFile(
       if (error) return { ok: false, error: `신규 미매칭 품목 등록 실패: ${error.message}` };
     }
 
-    const filename = file.name;
+    // 맥에서 받은 한글 파일명은 자모가 풀어진 형태(NFD)라 화면에서 깨져 보이므로 합쳐서(NFC) 저장한다.
+    const filename = file.name.normalize("NFC");
     const snapshotAt = parseSnapshotTimestamp(filename);
 
     const {
