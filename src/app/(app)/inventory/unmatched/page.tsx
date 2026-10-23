@@ -21,7 +21,7 @@ export default async function UnmatchedStockPage() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold text-slate-900">카탈로그 미매칭 재고</h1>
         <p className="text-sm text-slate-500">
-          실사 재고에는 있지만 가격표(카탈로그)에 브랜드 상품번호가 매칭되지 않아 아직 제품으로 등록하지 못한
+          실사 재고에는 있지만 가격표(카탈로그)에 SKU가 매칭되지 않아 아직 제품으로 등록하지 못한
           품목입니다. 가격/유형을 확인해 &ldquo;재고&rdquo; 페이지에서 제품으로 추가한 뒤, 이 목록에서
           지워주세요.
         </p>
@@ -37,7 +37,7 @@ export default async function UnmatchedStockPage() {
             <Table>
               <Thead>
                 <Tr>
-                  <Th>실사 상품코드</Th>
+                  <Th>상품코드</Th>
                   <Th>상품명 (원본)</Th>
                   <Th>실사 수량</Th>
                   <Th>비고</Th>

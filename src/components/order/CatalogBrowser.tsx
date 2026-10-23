@@ -134,7 +134,7 @@ export function CatalogBrowser({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="상품명 또는 상품코드로 검색..."
+          placeholder="상품명 또는 SKU로 검색..."
           className="max-w-sm"
         />
         <div className="flex flex-wrap gap-1.5">

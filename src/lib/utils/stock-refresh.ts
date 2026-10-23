@@ -1,17 +1,18 @@
 import * as cheerio from "cheerio";
 
 /**
- * "현재고조회" 실사 엑셀(HTML 포맷 .xls) 파싱 + 브랜드 상품번호 매칭 로직.
+ * "현재고조회" 실사 엑셀(HTML 포맷 .xls) 파싱 + SKU 매칭 로직.
  *
- * 두 벌의 상품 코드가 존재한다:
- *  - `상품코드` (이지어드민 내부 관리코드, 5자리, 앞자리 0 포함 가능) — 아직
- *    카탈로그에 없는 품목을 `catalog_gaps.source_sku`로 식별할 때 씀.
- *  - `상품명` 맨 앞에 붙은 브랜드 상품번호 (3자리 이상 숫자) — `products.sku`와
+ * 용어 (허브 화면과 동일):
+ *  - **상품코드** = 파일의 `상품코드` 열. 이지어드민(3PL)에 상품을 등록할 때 발생한
+ *    코드(5자리, 앞자리 0 포함 가능). `products.ezadmin_code`에 저장하고, 아직
+ *    카탈로그에 없는 품목은 `catalog_gaps.source_sku`로 식별할 때도 쓴다.
+ *  - **SKU** = `상품명` 맨 앞에 붙은 우리 고유 번호 (3자리 이상 숫자) — `products.sku`와
  *    매칭되는 진짜 키. (참고: joola_pricing_stock_logic.md §2)
  */
 
 export interface ParsedStockRow {
-  /** 이지어드민 내부 관리코드 (5자리, 원본 텍스트 그대로 — 앞자리 0 보존) */
+  /** 이지어드민 상품코드 (5자리, 원본 텍스트 그대로 — 앞자리 0 보존) */
   sourceSku: string;
   /** 상품명 원본 (브랜드 코드 포함) */
   rawName: string;

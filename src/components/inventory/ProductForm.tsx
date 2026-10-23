@@ -13,13 +13,26 @@ export function ProductForm({
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="sku">상품코드 (SKU)</Label>
+          <Label htmlFor="sku">SKU (우리 고유 번호)</Label>
           <Input id="sku" name="sku" required defaultValue={defaultValues?.sku} />
         </div>
         <div>
           <Label htmlFor="name">제품명</Label>
           <Input id="name" name="name" required defaultValue={defaultValues?.name} />
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="ezadmin_code">상품코드 (이지어드민, 선택)</Label>
+        <Input
+          id="ezadmin_code"
+          name="ezadmin_code"
+          placeholder="예: 06867 (앞자리 0도 그대로 입력)"
+          defaultValue={defaultValues?.ezadmin_code ?? ""}
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          이지어드민에 상품을 등록할 때 생기는 코드입니다. 재고 최신화로 파일을 올리면 자동으로 채워지니, 비워 두어도 됩니다.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

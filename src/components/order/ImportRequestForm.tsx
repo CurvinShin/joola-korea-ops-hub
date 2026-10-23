@@ -52,7 +52,7 @@ export function ImportRequestForm({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="상품명 또는 상품코드로 검색..."
+              placeholder="상품명 또는 SKU로 검색..."
             />
             {matches.length > 0 && (
               <ul className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">

@@ -30,7 +30,7 @@ export default async function StockRefreshPage() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold text-slate-900">재고 최신화</h1>
         <p className="text-sm text-slate-500">
-          이지어드민에서 내려받은 &ldquo;현재고조회&rdquo; 실사 엑셀을 올리면 브랜드 상품번호로 자동
+          이지어드민에서 내려받은 &ldquo;현재고조회&rdquo; 실사 엑셀을 올리면 SKU로 자동
           매칭해서 재고 수량을 갱신합니다. 매칭 안 되는 품목은 &ldquo;카탈로그 미매칭 재고&rdquo;
           게시판에 반영됩니다.
         </p>
