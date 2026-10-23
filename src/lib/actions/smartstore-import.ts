@@ -77,7 +77,7 @@ export async function importSmartstoreExport(
     return {
       ok: true,
       summary: {
-        filename: file.name,
+        filename: file.name.normalize("NFC"),
         totalRowsInFile: parsed.totalRowsInFile,
         imported: parsed.rows.length,
         invalidStatusCount,

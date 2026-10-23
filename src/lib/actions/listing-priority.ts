@@ -174,7 +174,7 @@ export async function importStoreProductList(
     return {
       ok: true,
       summary: {
-        filename: file.name,
+        filename: file.name.normalize("NFC"),
         productCount: match.productCount,
         ignoredCount: match.ignoredCount,
         matched: match.matched.map((m) => ({ label: m.label, count: m.count })),
