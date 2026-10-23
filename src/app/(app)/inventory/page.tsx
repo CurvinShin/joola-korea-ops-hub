@@ -52,7 +52,12 @@ export default async function InventoryPage({
   const registerDefaults = registerGap
     ? (() => {
         const { brandSku, productName } = extractLeadingCode(registerGap.source_name);
-        return { sku: brandSku ?? "", name: productName, current_stock: registerGap.qty };
+        return {
+          sku: brandSku ?? "",
+          ezadmin_code: registerGap.source_sku,
+          name: productName,
+          current_stock: registerGap.qty,
+        };
       })()
     : undefined;
 
@@ -182,9 +187,9 @@ export default async function InventoryPage({
         <Modal title="미매칭 재고를 제품으로 등록" closeHref="/inventory?status=gaps">
           <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
             <p>실사 원본: {registerGap.source_name}</p>
-            <p>실사 수량 {registerGap.qty}개 · 내부관리코드 {registerGap.source_sku ?? "—"}</p>
+            <p>실사 수량 {registerGap.qty}개 · 상품코드 {registerGap.source_sku ?? "—"}</p>
             <p className="mt-1 text-slate-400">
-              상품코드·제품명·재고를 채워 두었습니다. 카테고리, 상품 구분(가격 공식)과 사진을 확인하고 저장하면 제품으로
+              SKU·상품코드·제품명·재고를 채워 두었습니다. 카테고리, 상품 구분(가격 공식)과 사진을 확인하고 저장하면 제품으로
               등록되면서 이 미매칭 목록에서 자동으로 빠집니다.
             </p>
           </div>

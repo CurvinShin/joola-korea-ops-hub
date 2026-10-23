@@ -51,6 +51,7 @@ export function StockRefreshForm() {
           <ul className="mt-2 list-disc space-y-0.5 pl-4">
             <li>전체 {state.summary.totalRows}행 처리</li>
             <li>재고 갱신 {state.summary.matchedUpdated}건</li>
+            <li>이지어드민 상품코드 새로 반영 {state.summary.codesUpdated}건</li>
             <li>미매칭 재고 수량 갱신 {state.summary.gapsUpdated}건</li>
             {state.summary.gapsNew > 0 ? (
               <li className="text-amber-700">

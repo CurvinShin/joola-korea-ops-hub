@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const productSchema = z.object({
-  sku: z.string().min(1, "상품코드(SKU)를 입력해주세요"),
+  sku: z.string().min(1, "SKU를 입력해주세요"),
+  // 이지어드민 상품코드(5자리, 앞자리 0 보존을 위해 문자열). 비워도 된다.
+  ezadmin_code: z.string().trim().optional().or(z.literal("")),
   name: z.string().min(1, "제품명을 입력해주세요"),
   category: z.string().optional().or(z.literal("")),
   subcategory: z.string().optional().or(z.literal("")),
@@ -49,6 +51,7 @@ async function insertProductWithInventory(data: ReturnType<typeof parseProductFo
     .from("products")
     .insert({
       sku: data.sku,
+      ezadmin_code: data.ezadmin_code || null,
       name: data.name,
       category: data.category || null,
       subcategory: data.subcategory || null,
@@ -110,6 +113,7 @@ export async function updateProduct(id: string, formData: FormData) {
     .from("products")
     .update({
       sku: data.sku,
+      ezadmin_code: data.ezadmin_code || null,
       name: data.name,
       category: data.category || null,
       subcategory: data.subcategory || null,

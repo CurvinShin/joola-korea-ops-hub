@@ -101,7 +101,10 @@ export type ProductType = "hardgoods" | "apparel";
 
 export interface Product {
   id: string;
+  // 우리(JOOLA Korea) 고유 번호 — 이지어드민 상품명 맨 앞 5~6자리. 화면에서는 "SKU".
   sku: string;
+  // 이지어드민(3PL)에 상품을 등록할 때 발생한 코드(5자리 문자열). 화면에서는 "상품코드".
+  ezadmin_code: string | null;
   name: string;
   category: string | null;
   image_url: string | null;
@@ -147,6 +150,8 @@ export interface InventoryStatusRow {
   // RECENT such date across all products are shown — so the next batch of
   // new products automatically retires the previous one, no manual cleanup.
   new_arrival_batch: string | null;
+  // 이지어드민 상품코드 (products.ezadmin_code). 화면 용어는 "상품코드".
+  ezadmin_code: string | null;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is

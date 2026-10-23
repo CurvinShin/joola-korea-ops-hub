@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
+import { CopyNameButton } from "@/components/inventory/CopyNameButton";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_ORDER } from "@/lib/utils/categoryOrder";
 import { INVENTORY_STATUSES, type InventoryStatus } from "@/lib/utils/inventory-status";
@@ -34,7 +35,7 @@ const STATUS_HINT: Partial<Record<InventoryStatus, string>> = {
   low: "재고가 부족 기준 이하로 내려간 품목입니다 (단종·백오더 제외, 적은 순).",
   incoming: "입고 예정 수량이 있는 품목입니다 (입고 예정일 빠른 순).",
   discontinued: "단종 처리된 품목입니다.",
-  gaps: "실사 재고에는 있지만 가격/유형 정보가 없어 아직 제품으로 등록하지 못한 품목입니다. “제품으로 등록”을 누르면 상품코드·제품명·수량이 채워진 입력 창이 열립니다.",
+  gaps: "실사 재고에는 있지만 가격/유형 정보가 없어 아직 제품으로 등록하지 못한 품목입니다. “제품으로 등록”을 누르면 SKU·상품코드·제품명·수량이 채워진 입력 창이 열립니다.",
 };
 
 function statusHref(status: InventoryStatus, extra?: string) {
@@ -144,7 +145,11 @@ export function InventoryBrowser({
       if (category && r.category !== category) return false;
       if (subcategory && r.subcategory !== subcategory) return false;
       if (!q) return true;
-      return r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q);
+      return (
+        r.name.toLowerCase().includes(q) ||
+        r.sku.toLowerCase().includes(q) ||
+        (r.ezadmin_code ?? "").toLowerCase().includes(q)
+      );
     });
   }, [statusRows, query, category, subcategory]);
 
@@ -261,7 +266,7 @@ export function InventoryBrowser({
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="이름 또는 상품코드로 검색... (입력하는 대로 바로 검색됩니다)"
+        placeholder="이름, SKU 또는 상품코드로 검색... (입력하는 대로 바로 검색됩니다)"
         className="max-w-xs"
       />
 
@@ -270,10 +275,10 @@ export function InventoryBrowser({
           <Table>
             <Thead>
               <Tr>
-                <Th>브랜드 상품번호</Th>
+                <Th>SKU</Th>
                 <Th>상품명 (원본)</Th>
                 <Th>실사 수량</Th>
-                <Th>내부관리코드</Th>
+                <Th>상품코드</Th>
                 <Th>비고</Th>
                 <Th></Th>
               </Tr>
@@ -317,6 +322,7 @@ export function InventoryBrowser({
           <Thead>
             <Tr>
               <Th>사진</Th>
+              <Th>SKU</Th>
               <Th>상품코드</Th>
               <Th>제품</Th>
               <Th>카테고리</Th>
@@ -340,7 +346,13 @@ export function InventoryBrowser({
                   )}
                 </Td>
                 <Td className="font-mono text-xs">{r.sku}</Td>
-                <Td>{r.name}</Td>
+                <Td className="font-mono text-xs text-slate-500">{r.ezadmin_code ?? "—"}</Td>
+                <Td>
+                  <div className="flex items-center">
+                    <span>{r.name}</span>
+                    <CopyNameButton sku={r.sku} name={r.name} />
+                  </div>
+                </Td>
                 <Td>
                   {r.category ?? "—"}
                   {r.subcategory && <span className="text-slate-400"> · {r.subcategory}</span>}

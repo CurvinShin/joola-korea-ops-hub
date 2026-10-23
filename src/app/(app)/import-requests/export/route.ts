@@ -27,7 +27,7 @@ function addMonths(month: string, delta: number): string {
   return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, "0")}`;
 }
 
-// 견적서 품목명("600556 JOOLA Perseus ...")의 맨 앞 상품코드
+// 견적서 품목명("600556 JOOLA Perseus ...")의 맨 앞 SKU
 function leadingSku(name: string): string | null {
   const m = /^\s*(\d{4,6})\b/.exec(name);
   return m ? m[1] : null;
@@ -159,7 +159,7 @@ export async function GET(req: Request) {
     [title],
     [`요청 ${reqs.length}건 · 상품 ${list.length}종 · 총 ${list.reduce((s, g) => s + g.total, 0)}개 · 딜러 ${new Set(reqs.map((r) => r.dealer_id)).size}곳`],
     [],
-    ["No", "상품코드", "상품명", "요청 합계(개)", "요청 딜러 수", "현재 재고", "가용 재고", "입고 예정(개)", "입고 예정일", "최근 6개월 판매(개)", "월평균(개)", "요청 수량 ÷ 월평균(개월분)", "판매 추세(최근3개월 vs 이전3개월)"],
+    ["No", "SKU", "상품명", "요청 합계(개)", "요청 딜러 수", "현재 재고", "가용 재고", "입고 예정(개)", "입고 예정일", "최근 6개월 판매(개)", "월평균(개)", "요청 수량 ÷ 월평균(개월분)", "판매 추세(최근3개월 vs 이전3개월)"],
   ];
   list.forEach((g, i) => {
     const inv1 = invById.get(g.productId) as { current_stock: number; available_stock: number; incoming_qty: number; eta: string | null } | undefined;
@@ -190,7 +190,7 @@ export async function GET(req: Request) {
   const trend: (string | number)[][] = [
     [`최근 6개월 판매추이 — ${fullMonths[0]} ~ ${fullMonths[5]} (딜러 판매 수량, 데모구매 포함)`],
     [],
-    ["상품코드", "상품명", ...monthLabels, `${refMonth}(진행 중)`, "6개월 합계", "월평균", "최근 3개월", "이전 3개월", "추세"],
+    ["SKU", "상품명", ...monthLabels, `${refMonth}(진행 중)`, "6개월 합계", "월평균", "최근 3개월", "이전 3개월", "추세"],
   ];
   for (const g of list) {
     const row: (string | number)[] = [g.sku, g.name, ...fullMonths.map((m) => monthQty(g.sku, m)), monthQty(g.sku, refMonth)];
@@ -203,7 +203,7 @@ export async function GET(req: Request) {
   XLSX.utils.book_append_sheet(wb, ws2, "최근 6개월 판매추이");
 
   // ③ 딜러별 요청 내역
-  const detail: (string | number)[][] = [["딜러", "상품코드", "상품명", "수량", "요청일", "메모", "상태", "백오더 주문번호"]];
+  const detail: (string | number)[][] = [["딜러", "SKU", "상품명", "수량", "요청일", "메모", "상태", "백오더 주문번호"]];
   for (const r of [...reqs].sort((a, b) => a.sku.localeCompare(b.sku) || a.created_at.localeCompare(b.created_at))) {
     detail.push([
       r.dealers?.name ?? "",
@@ -224,10 +224,10 @@ export async function GET(req: Request) {
   const notes = [
     ["계산 기준 / 참고"],
     [],
-    ["판매 수량 출처", "딜러 견적서 품목(dealer_quote_items)의 수량을 상품코드로 맞춰 월별로 더했습니다. 견적서의 마지막 날짜 이후에 입금 확인된 Hub 딜러 주문은 이어서 더했습니다."],
+    ["판매 수량 출처", "딜러 견적서 품목(dealer_quote_items)의 수량을 SKU로 맞춰 월별로 더했습니다. 견적서의 마지막 날짜 이후에 입금 확인된 Hub 딜러 주문은 이어서 더했습니다."],
     ["기간", `${fullMonths[0]} ~ ${fullMonths[5]} (이번 달 ${refMonth}은 진행 중이라 6개월 합계·월평균에서 제외하고 별도 열로만 표시)`],
     ["포함 범위", "딜러(B2B) 판매만 포함합니다. 데모구매 수량은 포함, 스마트스토어(소비자) 판매는 포함하지 않았습니다."],
-    ["상품코드 매칭", "견적서 품목명 맨 앞 상품코드와 같은 코드만 합산했습니다. 코드가 없는 품목은 집계되지 않을 수 있습니다."],
+    ["SKU 매칭", "견적서 품목명 맨 앞 SKU와 같은 번호만 합산했습니다. SKU가 없는 품목은 집계되지 않을 수 있습니다."],
     ["요청÷월평균", "이번 요청 수량이 최근 6개월 월평균 판매량의 몇 개월분인지 보여줍니다(판매 이력이 없으면 '판매 이력 없음')."],
     ["추세", "최근 3개월 판매량을 이전 3개월과 비교해 ±10% 이내면 '비슷함'으로 표시합니다."],
     ["재고", "현재 재고/가용 재고/입고 예정은 이 파일을 만든 시점의 Hub 재고 기준입니다."],
