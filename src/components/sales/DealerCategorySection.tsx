@@ -180,7 +180,7 @@ export function DealerCategorySection({ report }: { report: ProductCategoryRepor
                 return (
                   <Tr key={kr}>
                     <Td className="font-medium text-slate-900">
-                      {dealerNameByKrCode.get(kr) ?? kr} <span className="text-slate-400">({kr})</span>
+                      {dealerNameByKrCode.get(kr) ?? (kr === "KR00" ? "소비자에게 직접판매" : kr)} <span className="text-slate-400">({kr})</span>
                     </Td>
                     {TOP_CATEGORIES.map((cat) => (
                       <Td key={cat} className="text-right">
