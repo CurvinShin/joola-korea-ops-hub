@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isZeroPriceDealerCode } from "@/lib/config/coupang";
 
 export const dynamic = "force-dynamic";
 
@@ -23,20 +24,19 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   since.setUTCDate(1);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [ordersRes, skuCountRes, dealersCountRes, inventoryRes, pendingRes, dealerRowsRes, recentOrdersRes] = await Promise.all([
-    supabase.from("dealer_orders").select("order_date, total_amount").gte("order_date", sinceStr),
+  const [ordersRes, skuCountRes, inventoryRes, pendingRes, dealerRowsRes, recentOrdersRes] = await Promise.all([
+    supabase.from("dealer_orders").select("dealer_id, order_date, total_amount").gte("order_date", sinceStr),
     supabase.from("smartstore_sku_map").select("*", { count: "exact", head: true }),
-    supabase.from("dealers").select("*", { count: "exact", head: true }),
     // 대시보드의 "재고 부족 SKU"와 같은 기준(단종 상품 제외)으로 센다.
     supabase.from("inventory_status").select("is_low_stock, discontinued"),
     // 입금 확인 대기(draft) 주문 — 건수와 가장 오래된 주문일만(딜러 이름 등은 포함하지 않음).
     supabase
       .from("dealer_orders")
-      .select("order_date")
+      .select("dealer_id, order_date")
       .eq("status", "draft")
       .order("order_date", { ascending: true }),
     // 딜러별 현황용 — 사업자(딜러) 이름·상태만 읽는다. 담당자 이름/연락처/주소/이메일은 select하지 않는다.
-    supabase.from("dealers").select("id, name, status"),
+    supabase.from("dealers").select("id, name, status, kr_code"),
     // 최근 주문(취소 제외) — 딜러별 최근 주문 3건/마지막 주문일/입금대기 집계용.
     supabase
       .from("dealer_orders")
@@ -49,7 +49,6 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const firstError =
     ordersRes.error?.message ??
     skuCountRes.error?.message ??
-    dealersCountRes.error?.message ??
     inventoryRes.error?.message ??
     pendingRes.error?.message ??
     dealerRowsRes.error?.message ??
@@ -58,8 +57,14 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     return Response.json({ error: firstError }, { status: 500 });
   }
 
+  // 쿠팡 로켓그로스 입고용 가상 딜러("쿠팡로켓")는 딜러 수·매출·입금대기 집계에서 뺀다.
+  const zeroPriceDealerIds = new Set(
+    (dealerRowsRes.data ?? []).filter((d) => isZeroPriceDealerCode(d.kr_code)).map((d) => d.id)
+  );
+  const realDealerRows = (dealerRowsRes.data ?? []).filter((d) => !zeroPriceDealerIds.has(d.id));
+
   const byMonth = new Map<string, { orderCount: number; revenue: number }>();
-  for (const o of ordersRes.data ?? []) {
+  for (const o of (ordersRes.data ?? []).filter((o) => !zeroPriceDealerIds.has(o.dealer_id))) {
     const ym = String(o.order_date).slice(0, 7);
     const entry = byMonth.get(ym) ?? { orderCount: 0, revenue: 0 };
     entry.orderCount += 1;
@@ -68,7 +73,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   }
 
   const lowStockProductCount = (inventoryRes.data ?? []).filter((r) => r.is_low_stock && !r.discontinued).length;
-  const pendingOrders = pendingRes.data ?? [];
+  const pendingOrders = (pendingRes.data ?? []).filter((o) => !zeroPriceDealerIds.has(o.dealer_id));
 
   // 딜러별 현황 (연락처 등 개인정보 없음: 사업자 이름, 주문번호, 날짜, 상태, 금액만)
   const ordersByDealer = new Map<string, NonNullable<typeof recentOrdersRes.data>>();
@@ -77,7 +82,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     list.push(o);
     ordersByDealer.set(o.dealer_id, list);
   }
-  const dealers = (dealerRowsRes.data ?? []).map((d) => {
+  const dealers = realDealerRows.map((d) => {
     const list = ordersByDealer.get(d.id) ?? []; // 이미 최신순
     const pending = list.filter((o) => o.status === "draft");
     return {
@@ -101,7 +106,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       Array.from(byMonth.entries()).sort(([a], [b]) => a.localeCompare(b))
     ),
     smartstoreSkuMapCount: skuCountRes.count ?? 0,
-    dealerCount: dealersCountRes.count ?? 0,
+    dealerCount: realDealerRows.length,
     lowStockProductCount,
     pendingPaymentOrderCount: pendingOrders.length,
     oldestPendingPaymentOrderDate: pendingOrders[0]?.order_date ?? null,

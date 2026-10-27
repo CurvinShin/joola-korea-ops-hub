@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { DealerOrdersTable } from "@/components/dealer-orders/DealerOrdersTable";
+import { AdminCreateOrderModal } from "@/components/dealer-orders/AdminCreateOrderModal";
 import { buildShippingListRowsByOrder } from "@/lib/utils/shipping-list";
 import { dispatchOrderNumber } from "@/lib/utils/dispatch-sheet";
 import { BatchDispatchCancel } from "@/components/dealer-orders/DispatchCancelButtons";
@@ -63,11 +64,13 @@ export default async function DealerOrdersPage({
     ordersQuery = ordersQuery.gte("order_date", start).lt("order_date", end).limit(500);
   }
 
-  const [{ data: orders, error }, { data: catalog }] = await Promise.all([
+  const [{ data: orders, error }, { data: catalog }, { data: dealerRows }] = await Promise.all([
     ordersQuery,
     // draft 주문을 관리자가 직접 수정할 때 SKU로 품목을 추가할 수 있게 —
     // 딜러 주문 화면(/order)이 쓰는 것과 같은 카탈로그를 그대로 가져온다.
     supabase.from("dealer_catalog").select("*").order("name"),
+    // 관리자가 주문을 직접 만들 때 고를 딜러 목록(활성 딜러만).
+    supabase.from("dealers").select("id, name, kr_code").eq("status", "active").order("name"),
   ]);
 
   const rows = (orders ?? []) as unknown as (DealerOrderAdminRow & { order_date: string })[];
@@ -99,12 +102,14 @@ export default async function DealerOrdersPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">딜러 주문</h1>
+        <h1 className="text-xl font-semibold text-slate-900">딜러/쿠팡로켓그로스 주문</h1>
         <p className="text-sm text-slate-500">
-          딜러가 사이트에서 넣은 주문입니다. 확인 후 경리나라에서 견적서/발주서를 작성하고, 아래에서 처리 상태를
-          체크해주세요.
+          딜러가 사이트에서 넣은 주문과, 관리자가 직접 만든 주문(쿠팡로켓 로켓그로스 입고 등)입니다. 확인 후
+          경리나라에서 견적서/발주서를 작성하고, 아래에서 처리 상태를 체크해주세요.
         </p>
       </div>
+
+      <AdminCreateOrderModal dealers={dealerRows ?? []} catalog={catalogRows} />
 
       <form className="flex flex-wrap items-center gap-2">
         <Select name="month" defaultValue={month} className="max-w-[220px]">

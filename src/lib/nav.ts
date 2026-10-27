@@ -22,7 +22,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "주문·재고",
     items: [
       { href: "/dealers", label: "딜러" },
-      { href: "/dealer-orders", label: "딜러 주문", countKey: "dealerOrders" },
+      { href: "/dealer-orders", label: "딜러/쿠팡로켓그로스 주문", countKey: "dealerOrders" },
       { href: "/inventory", label: "재고" },
       { href: "/import-requests", label: "수입 요청" },
       { href: "/purchase-orders", label: "해외 발주" },
