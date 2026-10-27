@@ -11,6 +11,85 @@ import { mergeDraftOrders, type MergeOrdersResult } from "@/lib/utils/order-merg
 // that hand-off has happened yet (synced_to_accounting).
 
 /**
+ * 관리자가 딜러(또는 "쿠팡로켓" 로켓그로스 입고) 대신 주문을 직접 만든다.
+ * 지금까지는 딜러 계정으로 로그인해서 /order에서 넣은 주문만 존재했는데,
+ * 쿠팡 입고처럼 로그인 계정이 없는 곳도 같은 화면(발주서 엑셀, 택배 양식)을
+ * 쓰기 위해 추가했다. 딜러가 직접 넣은 주문과 똑같이 status="draft"로
+ * 만들어지고(입금 확인 때 재고 차감), 가격 계산도 priceCartItemsForDealer를
+ * 그대로 쓴다 — 쿠팡로켓은 그 안에서 0원·배송비 0으로 처리된다.
+ */
+export async function createDealerOrderAdmin(
+  dealerId: string,
+  items: { productId: string; quantity: number; isDemo: boolean }[]
+): Promise<
+  | { ok: true; message: string; orderId: string; orderNumber: string | null }
+  | { ok: false; message: string }
+> {
+  const inputError = validateCartInput(items);
+  if (inputError) return { ok: false, message: inputError };
+  if (!dealerId) return { ok: false, message: "딜러를 선택해주세요." };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "로그인이 필요합니다." };
+
+  const priced = await priceCartItemsForDealer(supabase, dealerId, items);
+  if (!priced.ok) return priced;
+
+  const { data: orderNumber, error: orderNumberError } = await supabase.rpc("assign_dealer_order_number", {
+    p_dealer_id: priced.dealerId,
+  });
+  if (orderNumberError) {
+    console.error("assign_dealer_order_number failed", orderNumberError);
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from("dealer_orders")
+    .insert({
+      dealer_id: priced.dealerId,
+      status: "draft",
+      order_type: priced.allDemo ? "demo" : "regular",
+      total_amount: priced.subtotal,
+      auto_shipping_boxes: priced.autoShippingBoxes,
+      auto_shipping_fee: priced.autoShippingFee,
+      order_number: orderNumber ?? null,
+    })
+    .select("id")
+    .single();
+  if (orderError || !order) {
+    return { ok: false, message: `주문 생성에 실패했습니다: ${orderError?.message ?? ""}` };
+  }
+
+  const { error: itemsError } = await supabase.from("dealer_order_items").insert(
+    priced.rows.map((r) => ({
+      order_id: order.id,
+      product_id: r.product_id,
+      quantity: r.quantity,
+      unit_price: r.unit_price,
+      is_demo: r.is_demo,
+    }))
+  );
+  if (itemsError) {
+    // 품목이 없는 빈 주문이 남지 않도록 방금 만든 주문 행만 정리한다.
+    await supabase.from("dealer_orders").delete().eq("id", order.id);
+    return { ok: false, message: `주문 상품 등록에 실패했습니다: ${itemsError.message}` };
+  }
+
+  revalidatePath("/dealer-orders");
+  revalidatePath("/order");
+  return {
+    ok: true,
+    message: orderNumber
+      ? `주문 ${orderNumber}을(를) 만들었습니다.`
+      : "주문을 만들었습니다. (주문번호는 딜러 kr_code가 없어 발급되지 않았습니다.)",
+    orderId: order.id,
+    orderNumber: orderNumber ?? null,
+  };
+}
+
+/**
  * 관리자 화면(딜러 주문 상세)에서 주문 품목 자체를 고친다 — 품목 추가/삭제,
  * 수량 조정 모두 가능. 입금 확인 전(status="draft") 주문에만 허용한다:
  * 그 이후는 이미 재고가 차감된 상태라 품목이 바뀌면 재고까지 같이

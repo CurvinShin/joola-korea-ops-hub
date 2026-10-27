@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { calcDealerUnitPrice, calcHardgoodsPrice } from "@/lib/utils/pricing";
+import { isZeroPriceDealerCode } from "@/lib/config/coupang";
 
 // 딜러 장바구니/주문 품목에 서버가 다시 가격을 매기는 공통 로직. "use server"
 // 파일(dealer-portal.ts, dealer-order-admin.ts) 양쪽에서 그대로 가져다 쓴다 —
@@ -147,7 +148,7 @@ export async function priceCartItemsForDealer(
 ): Promise<PricedCart> {
   const { data: dealer, error: dealerError } = await supabase
     .from("dealers")
-    .select("id, discount_rate")
+    .select("id, discount_rate, kr_code")
     .eq("id", dealerId)
     .single();
   if (dealerError || !dealer) {
@@ -166,6 +167,27 @@ export async function priceCartItemsForDealer(
   // 데모구매는 프로모션 대상에서 항상 제외 — 정식 구매 품목에 한해서만 조회.
   const promoEligibleIds = [...new Set(items.filter((i) => !i.isDemo).map((i) => i.productId))];
   const promoByProduct = await fetchActivePromotions(supabase, promoEligibleIds);
+
+  // 쿠팡 로켓그로스 입고용 딜러는 판매가 아니라 입고 발송이라 모든 품목을
+  // 0원으로 저장한다(배송비 0, 프로모션/가격 미등록 검사도 건너뜀).
+  if (isZeroPriceDealerCode(dealer.kr_code)) {
+    const zeroRows: { product_id: string; quantity: number; unit_price: number; is_demo: boolean }[] = [];
+    for (const it of items) {
+      if (!byId.get(it.productId)) {
+        return { ok: false, message: "상품 정보를 찾을 수 없는 항목이 있습니다. 새로고침 후 다시 시도해주세요." };
+      }
+      zeroRows.push({ product_id: it.productId, quantity: it.quantity, unit_price: 0, is_demo: false });
+    }
+    return {
+      ok: true,
+      dealerId: dealer.id,
+      rows: zeroRows,
+      subtotal: 0,
+      autoShippingBoxes: 0,
+      autoShippingFee: 0,
+      allDemo: false,
+    };
+  }
 
   const discountRatePercent = Number(dealer.discount_rate ?? 0);
   let subtotal = 0;

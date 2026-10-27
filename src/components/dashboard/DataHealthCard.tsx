@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { COUPANG_ROCKET_KR_CODE } from "@/lib/config/coupang";
 
 type Issue = {
   key: string;
@@ -27,6 +28,31 @@ export async function DataHealthCard() {
   const supabase = createClient();
   const since = sinceDate(60);
 
+  // 쿠팡로켓(입고용, 0원 저장) 주문은 "0원 주문" 점검 대상이 아니다 — 의도된 0원이라 제외.
+  const { data: zeroPriceDealers } = await supabase
+    .from("dealers")
+    .select("id")
+    .eq("kr_code", COUPANG_ROCKET_KR_CODE);
+  const zeroPriceDealerList = (zeroPriceDealers ?? []).map((d) => d.id);
+  const excludeIn = `(${zeroPriceDealerList.join(",")})`;
+
+  let zeroItemsQuery = supabase
+    .from("dealer_order_items")
+    .select("quantity, dealer_orders!inner(order_number, status, order_date, dealer_id), products(sku)", { count: "exact" })
+    .eq("unit_price", 0)
+    .neq("dealer_orders.status", "cancelled")
+    .gte("dealer_orders.order_date", since);
+  let zeroOrdersQuery = supabase
+    .from("dealer_orders")
+    .select("order_number, order_date", { count: "exact" })
+    .eq("total_amount", 0)
+    .neq("status", "cancelled")
+    .gte("order_date", since);
+  if (zeroPriceDealerList.length > 0) {
+    zeroItemsQuery = zeroItemsQuery.not("dealer_orders.dealer_id", "in", excludeIn);
+    zeroOrdersQuery = zeroOrdersQuery.not("dealer_id", "in", excludeIn);
+  }
+
   const [noPrice, badRate, zeroItems, zeroOrders, noImage] = await Promise.all([
     supabase
       .from("products")
@@ -40,20 +66,8 @@ export async function DataHealthCard() {
       .eq("status", "active")
       .or("discount_rate.is.null,discount_rate.gte.100")
       .limit(5),
-    supabase
-      .from("dealer_order_items")
-      .select("quantity, dealer_orders!inner(order_number, status, order_date), products(sku)", { count: "exact" })
-      .eq("unit_price", 0)
-      .neq("dealer_orders.status", "cancelled")
-      .gte("dealer_orders.order_date", since)
-      .limit(5),
-    supabase
-      .from("dealer_orders")
-      .select("order_number, order_date", { count: "exact" })
-      .eq("total_amount", 0)
-      .neq("status", "cancelled")
-      .gte("order_date", since)
-      .limit(5),
+    zeroItemsQuery.limit(5),
+    zeroOrdersQuery.limit(5),
     supabase
       .from("products")
       .select("sku", { count: "exact", head: true })

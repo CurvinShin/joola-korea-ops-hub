@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { format, startOfMonth } from "date-fns";
 import { orderStatusLabel, taskPriorityLabel } from "@/lib/utils/labels";
+import { COUPANG_ROCKET_KR_CODE, isZeroPriceDealerCode } from "@/lib/config/coupang";
 
 export const dynamic = "force-dynamic"; // always show live data, never cache
 
@@ -21,20 +22,25 @@ export default async function DashboardPage() {
   const [
     { count: activeDealerCount },
     { data: lowStockRows },
-    { data: recentOrders },
+    { data: recentOrdersRaw },
     { data: upcomingEvents },
     { data: pendingTasks },
     { data: monthSales },
     { data: monthTarget },
     { data: monthDealerQuotes },
   ] = await Promise.all([
-    supabase.from("dealers").select("*", { count: "exact", head: true }).eq("status", "active"),
+    // 쿠팡 로켓그로스 입고용 가상 딜러("쿠팡로켓")는 활성 딜러 수에서 뺀다(kr_code가 없는 딜러는 포함).
+    supabase
+      .from("dealers")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+      .or(`kr_code.is.null,kr_code.neq.${COUPANG_ROCKET_KR_CODE}`),
     supabase.from("inventory_status").select("*").eq("is_low_stock", true).eq("discontinued", false),
     supabase
       .from("dealer_orders")
-      .select("id, order_date, status, total_amount, dealers(name)")
+      .select("id, order_date, status, total_amount, dealers(name, kr_code)")
       .order("order_date", { ascending: false })
-      .limit(5),
+      .limit(15),
     supabase
       .from("events")
       .select("id, name, event_date, location")
@@ -55,6 +61,11 @@ export default async function DashboardPage() {
     // 9월 누락 견적서를 보정했는데도 대시보드 숫자가 그대로였던 원인이 이것이었다.
     supabase.from("dealer_quotes").select("amount").gte("quote_date", monthStart),
   ]);
+
+  // 최근 딜러 주문 5건 — 쿠팡로켓(입고용, 0원) 주문은 제외하고 보여준다.
+  const recentOrders = (recentOrdersRaw ?? [])
+    .filter((o: any) => !isZeroPriceDealerCode(o.dealers?.kr_code))
+    .slice(0, 5);
 
   const smartstoreMonthTotal = (monthSales ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
   const dealerMonthTotal = (monthDealerQuotes ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
