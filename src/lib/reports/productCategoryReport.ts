@@ -49,6 +49,27 @@ export interface ProductCategoryReport {
   generatedAt: string;
 }
 
+// Supabase(PostgREST)는 한 번 조회에 최대 1,000행까지만 돌려준다. 견적서 품목과
+// 스마트스토어 주문이 1,000행을 넘으면서 "가장 최근 달"이 조용히 잘려 나가
+// 화면 숫자가 8월에 멈춰 있던 적이 있어서, 반드시 이 함수로 페이지를 이어 붙여
+// 전부 읽어온다. 정렬 기준이 같은 값에서 겹치면 페이지 경계에서 행이 빠지거나
+// 중복될 수 있으니 호출하는 쪽에서 고유한 열(id 등)을 마지막 정렬 기준으로 둔다.
+export const PAGE_SIZE = 1000;
+
+export async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`데이터를 읽지 못했습니다: ${error.message}`);
+    const batch = (data ?? []) as T[];
+    all.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return all;
+}
+
 /**
  * Fetches dealer_quote_items + dealers and aggregates them into everything
  * the 제품군 분석 page (internal and public) needs to render. Shared so the
@@ -57,15 +78,19 @@ export interface ProductCategoryReport {
  * different Supabase clients (regular vs. service-role/admin).
  */
 export async function getProductCategoryReport(supabase: SupabaseClient): Promise<ProductCategoryReport> {
-  const [{ data: items }, { data: dealers }] = await Promise.all([
-    supabase
-      .from("dealer_quote_items")
-      .select("kr_code, order_no, quote_date, product_name, category, subcategory, quantity, amount")
-      .order("quote_date", { ascending: true }),
+  const [items, { data: dealers }] = await Promise.all([
+    fetchAllPages<DealerQuoteItemRow>((from, to) =>
+      supabase
+        .from("dealer_quote_items")
+        .select("kr_code, order_no, quote_date, product_name, category, subcategory, quantity, amount")
+        .order("quote_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     supabase.from("dealers").select("kr_code, name"),
   ]);
 
-  const rows = (items ?? []) as DealerQuoteItemRow[];
+  const rows = items;
   const dealerNameByKrCode = new Map<string, string>();
   for (const d of dealers ?? []) {
     if (d.kr_code) dealerNameByKrCode.set(d.kr_code, d.name);
@@ -182,12 +207,14 @@ function smartstoreMonthKey(dateStr: string) {
 }
 
 export async function getSmartstoreCategoryReport(supabase: SupabaseClient): Promise<SmartstoreCategoryReport> {
-  const { data } = await supabase
-    .from("smartstore_order_items")
-    .select("order_date, order_status, is_valid_sale, product_no, product_name, quantity, category, subcategory")
-    .order("order_date", { ascending: true });
-
-  const allRows = (data ?? []) as SmartstoreOrderItemRow[];
+  const allRows = await fetchAllPages<SmartstoreOrderItemRow>((from, to) =>
+    supabase
+      .from("smartstore_order_items")
+      .select("order_date, order_status, is_valid_sale, product_no, product_name, quantity, category, subcategory")
+      .order("order_date", { ascending: true })
+      .order("product_order_no", { ascending: true })
+      .range(from, to)
+  );
   const rows = allRows.filter((r) => r.is_valid_sale);
   const excludedCount = allRows.length - rows.length;
 
