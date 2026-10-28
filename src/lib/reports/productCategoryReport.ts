@@ -15,6 +15,7 @@ export const TOP_CATEGORIES = ["패들", "공", "악세사리", "의류", "신�
 export const PADDLE_SUBS = [
   "프로V",
   "프로IV",
+  "프로 1·2세대",
   "비전",
   "엣지",
   "챔피언",
@@ -22,7 +23,6 @@ export const PADDLE_SUBS = [
   "PowerFX",
   "기타(엔트리)",
   "기타(세트)",
-  "기타(C2 CFS)",
 ] as const;
 
 function monthKey(dateStr: string) {
