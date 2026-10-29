@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { DealerOrderRowActions } from "@/components/dealer-orders/DealerOrderRowActions";
 import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
+import { CopyEmailList, buildEmailList } from "@/components/dealer-orders/CopyEmailList";
 import { ShippingListCopyButton } from "@/components/dealer-orders/ShippingListCopyButton";
 import { DispatchButton } from "@/components/dealer-orders/DispatchButton";
 import { OrderDispatchCancel } from "@/components/dealer-orders/DispatchCancelButtons";
@@ -243,6 +244,11 @@ export function DealerOrdersTable({
                 <Td className="whitespace-nowrap">{formatOrderDateTime(o.created_at)}</Td>
                 <Td className="font-medium text-slate-900">
                   {o.dealers?.name ?? "—"}
+                  {buildEmailList(o.dealers?.contact_email, o.dealers?.cc_emails).length > 0 && (
+                    <span className="mt-0.5 block">
+                      <CopyEmailList primary={o.dealers?.contact_email} cc={o.dealers?.cc_emails} compact />
+                    </span>
+                  )}
                   {o.dispatch_batch_id && (
                     <span className="mt-0.5 block text-[10px] font-normal text-emerald-600">
                       발주 완료 · {dispatchLabels[o.dispatch_batch_id] ?? "발주서 기록 있음"}
