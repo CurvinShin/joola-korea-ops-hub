@@ -352,6 +352,10 @@ export interface Facility {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  // 계약서 서명본 보관 기록(0069). 허브 전자서명 상태는 partner_contracts에서 따로 읽는다.
+  contract_pdf_kept: boolean;
+  contract_signed_on: string | null;
+  contract_file_note: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

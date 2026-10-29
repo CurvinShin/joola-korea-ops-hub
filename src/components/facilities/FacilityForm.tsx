@@ -128,6 +128,39 @@ export function FacilityForm({
         </label>
       </div>
 
+      <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+        <p className="text-xs font-medium text-slate-600">계약서 서명본</p>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            name="contract_pdf_kept"
+            defaultChecked={defaultValues?.contract_pdf_kept ?? false}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          서명본 PDF를 보관하고 있음
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="contract_signed_on">서명일</Label>
+            <Input id="contract_signed_on" name="contract_signed_on" type="date" defaultValue={defaultValues?.contract_signed_on ?? ""} />
+          </div>
+          <div>
+            <Label htmlFor="contract_file_note">보관 위치 메모</Label>
+            <Input
+              id="contract_file_note"
+              name="contract_file_note"
+              maxLength={200}
+              placeholder="폴더·파일명 정도만"
+              defaultValue={defaultValues?.contract_file_note ?? ""}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">
+          허브 전자서명으로 체결한 계약은 상태가 자동으로 표시돼요. 서명본 PDF를 내려받아 보관했거나, 이미 PDF로 서명한
+          곳의 파일을 갖고 있다면 체크해 주세요. 개인정보나 비밀번호는 적지 마세요.
+        </p>
+      </div>
+
       <div>
         <Label htmlFor="sponsorship_details">스폰서십 세부사항</Label>
         <Textarea id="sponsorship_details" name="sponsorship_details" rows={2} defaultValue={defaultValues?.sponsorship_details ?? ""} />

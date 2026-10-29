@@ -9,6 +9,9 @@ import { FacilityForm } from "@/components/facilities/FacilityForm";
 import type { FacilityTier, PartnershipStatus } from "@/lib/types/database.types";
 import { facilityTierLabel } from "@/lib/partner/tier";
 import { partnershipStatusLabel, krRegionLabel } from "@/lib/utils/labels";
+import { facilityContractRecord } from "@/lib/partner/contract-record";
+import { loadHubContracts } from "@/lib/partner/contract-record-server";
+import { contractStatusLabel } from "@/lib/partner/contract-template";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +36,13 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
   const { data: facility } = await supabase.from("facilities").select("*").eq("id", params.id).maybeSingle();
 
   if (!facility) notFound();
+
+  const hubContract = (await loadHubContracts([facility.id])).get(facility.id);
+  const contractRecord = facilityContractRecord({
+    hubStatus: hubContract?.status,
+    pdfKept: facility.contract_pdf_kept,
+    partnershipStatus: facility.partnership_status,
+  });
 
   const updateWithId = updateFacility.bind(null, facility.id);
   const deleteWithId = deleteFacility.bind(null, facility.id);
@@ -77,6 +87,35 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
               <InfoRow label="이메일주소" value={facility.contact_email ?? "—"} />
               <InfoRow label="전화번호" value={facility.contact_phone ?? "—"} />
               <InfoRow label="코트 수" value={facility.courts_count != null ? String(facility.courts_count) : "—"} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>계약서 서명 상태</CardTitle>
+              <Badge tone={contractRecord.tone}>{contractRecord.label}</Badge>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-xs text-slate-500">{contractRecord.hint}</p>
+              <InfoRow
+                label="허브 전자서명"
+                value={hubContract && hubContract.status !== "void" ? contractStatusLabel[hubContract.status] : "해당 없음"}
+              />
+              <InfoRow label="서명본 PDF 보관" value={facility.contract_pdf_kept ? "보관 중" : "아직 없음"} />
+              <InfoRow
+                label="서명일"
+                value={
+                  facility.contract_signed_on
+                    ? new Date(`${facility.contract_signed_on}T00:00:00+09:00`).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })
+                    : "—"
+                }
+              />
+              <InfoRow label="보관 위치" value={facility.contract_file_note ?? "—"} />
+              {hubContract && (
+                <Link href={`/partner-applications/${hubContract.applicationId}`} className="block text-xs text-brand-700 hover:underline">
+                  허브 신청서·계약서 보기 →
+                </Link>
+              )}
             </CardContent>
           </Card>
 

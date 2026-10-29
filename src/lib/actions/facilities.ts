@@ -26,6 +26,9 @@ const facilitySchema = z.object({
   demo_paddles_provided: z.union([z.literal("on"), z.literal("")]).optional(),
   product_display: z.union([z.literal("on"), z.literal("")]).optional(),
   sponsorship_details: z.string().optional().or(z.literal("")),
+  contract_pdf_kept: z.union([z.literal("on"), z.literal("")]).optional(),
+  contract_signed_on: z.string().optional().or(z.literal("")),
+  contract_file_note: z.string().max(200, "보관 위치 메모는 200자 이내로 적어주세요").optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -51,6 +54,9 @@ function parseFacilityForm(formData: FormData) {
     demo_paddles_provided: data.demo_paddles_provided === "on",
     product_display: data.product_display === "on",
     sponsorship_details: data.sponsorship_details || null,
+    contract_pdf_kept: data.contract_pdf_kept === "on",
+    contract_signed_on: data.contract_signed_on || null,
+    contract_file_note: data.contract_file_note?.trim() || null,
     notes: data.notes || null,
   };
 }
