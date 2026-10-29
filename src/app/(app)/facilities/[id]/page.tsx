@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { FacilityForm } from "@/components/facilities/FacilityForm";
+import { FacilityContractFiles, type ContractFileRow } from "@/components/facilities/FacilityContractFiles";
 import type { FacilityTier, PartnershipStatus } from "@/lib/types/database.types";
 import { facilityTierLabel } from "@/lib/partner/tier";
 import { partnershipStatusLabel, krRegionLabel } from "@/lib/utils/labels";
@@ -36,6 +37,13 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
   const { data: facility } = await supabase.from("facilities").select("*").eq("id", params.id).maybeSingle();
 
   if (!facility) notFound();
+
+  const { data: contractFileRows } = await supabase
+    .from("facility_contract_files")
+    .select("id, file_name, file_size, created_at")
+    .eq("facility_id", facility.id)
+    .order("created_at", { ascending: false });
+  const contractFiles = (contractFileRows ?? []) as ContractFileRow[];
 
   const hubContract = (await loadHubContracts([facility.id])).get(facility.id);
   const contractRecord = facilityContractRecord({
@@ -116,6 +124,16 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
                   허브 신청서·계약서 보기 →
                 </Link>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>계약서 PDF</CardTitle>
+              <Badge tone="slate">관리자 전용</Badge>
+            </CardHeader>
+            <CardContent>
+              <FacilityContractFiles facilityId={facility.id} files={contractFiles} />
             </CardContent>
           </Card>
 
