@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
 import { COMPANY_INFO } from "@/lib/config/company";
+import { CopyEmail } from "@/components/dealer-orders/CopyEmail";
 import { updateDealerOrderItemsAdmin } from "@/lib/actions/dealer-order-admin";
 import type { DealerOrderAdminRow, DealerCatalogRow } from "@/lib/types/database.types";
 
@@ -321,6 +322,12 @@ export function OrderDetailModal({
                     <InfoRow label="수령인" value={dealer?.ship_recipient ?? "—"} />
                     <InfoRow label="배송지" value={dealer?.address ?? "—"} />
                     <InfoRow label="결제조건" value={dealer?.payment_terms ?? "—"} />
+                    <div className="flex justify-between gap-3 text-xs">
+                      <span className="shrink-0 text-slate-400">이메일</span>
+                      <span className="text-right text-slate-700">
+                        {dealer?.contact_email ? <CopyEmail email={dealer.contact_email} /> : "— (딜러 수정에서 입력)"}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <RemarksBlock />

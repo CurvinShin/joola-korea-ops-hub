@@ -262,6 +262,7 @@ export interface DealerOrderAdminRow {
     ship_recipient: string | null;
     payment_terms: string | null;
     contact_phone: string | null;
+    contact_email: string | null;
   } | null;
   dealer_order_items: {
     product_id: string;
