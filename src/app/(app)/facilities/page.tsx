@@ -12,7 +12,7 @@ import type { PartnershipStatus } from "@/lib/types/database.types";
 import { Input, Select } from "@/components/ui/Input";
 import { partnershipStatusLabel, krRegionLabel, krZones } from "@/lib/utils/labels";
 import { facilityContractRecord, contractRecordLabel, contractRecordKeys } from "@/lib/partner/contract-record";
-import { loadHubContracts } from "@/lib/partner/contract-record-server";
+import { loadHubContracts, loadContractFileCounts } from "@/lib/partner/contract-record-server";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +39,12 @@ export default async function FacilitiesPage({
 
   // 계약서 서명 상태: 허브 전자서명 상태(자동) + 서명본 PDF 보관 체크(직접 입력)를 합쳐서 계산한다.
   const hubContracts = await loadHubContracts(rows.map((f) => f.id));
+  const fileCounts = await loadContractFileCounts(rows.map((f) => f.id));
   const contractOf = (f: (typeof rows)[number]) =>
     facilityContractRecord({
       hubStatus: hubContracts.get(f.id)?.status,
-      pdfKept: f.contract_pdf_kept,
+      // 체크박스를 눌렀거나, 허브에 계약서 PDF를 올려 두었으면 "보관 중"으로 본다.
+      pdfKept: f.contract_pdf_kept || (fileCounts.get(f.id) ?? 0) > 0,
       partnershipStatus: f.partnership_status,
     });
 
