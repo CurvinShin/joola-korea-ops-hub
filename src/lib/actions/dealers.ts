@@ -25,6 +25,31 @@ const dealerSchema = z.object({
   segment_detail: z.string().optional().or(z.literal("")),
 });
 
+const MAX_CC_EMAILS = 10;
+
+// "추가 이메일" 입력칸은 같은 name(cc_emails)으로 여러 개 올라오므로 getAll로 따로 읽는다.
+// 공백 줄은 버리고, 형식이 틀린 주소가 있으면 저장하지 않고 알려준다. 대소문자만 다른 중복은 하나로 합친다.
+function parseCcEmails(formData: FormData, primary: string | null): string[] {
+  const emailSchema = z.string().email();
+  const seen = new Set<string>(primary ? [primary.toLowerCase()] : []);
+  const out: string[] = [];
+  for (const value of formData.getAll("cc_emails")) {
+    const email = String(value).trim();
+    if (!email) continue;
+    if (!emailSchema.safeParse(email).success) {
+      throw new Error(`추가 이메일 형식이 올바르지 않습니다: ${email}`);
+    }
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  if (out.length > MAX_CC_EMAILS) {
+    throw new Error(`추가 이메일은 최대 ${MAX_CC_EMAILS}개까지 입력할 수 있습니다`);
+  }
+  return out;
+}
+
 function parseDealerForm(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   const parsed = dealerSchema.safeParse(raw);
@@ -41,6 +66,7 @@ function parseDealerForm(formData: FormData) {
     kr_code: krCode,
     contact_name: data.contact_name || null,
     contact_email: data.contact_email || null,
+    cc_emails: parseCcEmails(formData, data.contact_email || null),
     contact_phone: data.contact_phone || null,
     region: data.region || null,
     contract_start: data.contract_start || null,

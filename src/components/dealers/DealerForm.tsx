@@ -16,6 +16,8 @@ export function DealerForm({
   const [segCategory, setSegCategory] = useState(defaultValues?.segment_category ?? "");
   const [segSubcategory, setSegSubcategory] = useState(defaultValues?.segment_subcategory ?? "");
   const [segDetail, setSegDetail] = useState(defaultValues?.segment_detail ?? "");
+  // 견적서 발송 시 담당자 이메일과 함께 보낼 추가 이메일(여러 개). 입력칸마다 name="cc_emails"로 제출된다.
+  const [ccEmails, setCcEmails] = useState<string[]>(defaultValues?.cc_emails ?? []);
 
   const categoryNode = findCategory(segCategory);
   const subCategories = categoryNode?.subCategories ?? [];
@@ -123,6 +125,46 @@ export function DealerForm({
           <Label htmlFor="contact_email">담당자 이메일</Label>
           <Input id="contact_email" name="contact_email" type="email" defaultValue={defaultValues?.contact_email ?? ""} />
         </div>
+      </div>
+
+      <div>
+        <Label>추가 이메일 (견적서 발송 시 함께 보낼 주소)</Label>
+        <div className="space-y-2">
+          {ccEmails.map((email, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                name="cc_emails"
+                type="email"
+                value={email}
+                placeholder="example@company.com"
+                aria-label={`추가 이메일 ${i + 1}`}
+                onChange={(e) => setCcEmails((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setCcEmails((prev) => prev.filter((_, idx) => idx !== i))}
+              >
+                삭제
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={ccEmails.length >= 10}
+            onClick={() => setCcEmails((prev) => [...prev, ""])}
+          >
+            + 이메일 추가
+          </Button>
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          딜러 주문 목록·상세에서 담당자 이메일과 함께 보이고, 주소별로 클릭해서 복사하거나 한 번에 전체 복사할 수
+          있어요. 최대 10개까지 입력할 수 있고, 비워 둔 칸은 저장되지 않습니다.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

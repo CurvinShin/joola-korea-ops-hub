@@ -71,6 +71,7 @@ export interface Dealer {
   status: DealerStatus;
   contact_name: string | null;
   contact_email: string | null;
+  cc_emails: string[];
   contact_phone: string | null;
   region: string | null;
   contract_start: string | null;
@@ -263,6 +264,7 @@ export interface DealerOrderAdminRow {
     payment_terms: string | null;
     contact_phone: string | null;
     contact_email: string | null;
+    cc_emails: string[] | null;
   } | null;
   dealer_order_items: {
     product_id: string;

@@ -52,7 +52,7 @@ export default async function DealerOrdersPage({
   let ordersQuery = supabase
     .from("dealer_orders")
     .select(
-      "id, dealer_id, order_date, created_at, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, shipped_at, dispatch_batch_id, dispatched_at, dealers(name, address, ship_recipient, payment_terms, contact_phone, contact_email), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
+      "id, dealer_id, order_date, created_at, status, order_type, synced_to_accounting, total_amount, auto_shipping_boxes, auto_shipping_fee, manual_shipping_fee, confirmed_total_amount, order_number, stock_deducted, shipped_at, dispatch_batch_id, dispatched_at, dealers(name, address, ship_recipient, payment_terms, contact_phone, contact_email, cc_emails), dealer_order_items(product_id, quantity, unit_price, is_demo, products(name, sku, category))"
     )
     .order("created_at", { ascending: false });
 

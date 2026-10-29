@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { DealerOrderRowActions } from "@/components/dealer-orders/DealerOrderRowActions";
 import { OrderDetailModal } from "@/components/dealer-orders/OrderDetailModal";
-import { CopyEmail } from "@/components/dealer-orders/CopyEmail";
+import { CopyEmailList, buildEmailList } from "@/components/dealer-orders/CopyEmailList";
 import { ShippingListCopyButton } from "@/components/dealer-orders/ShippingListCopyButton";
 import { DispatchButton } from "@/components/dealer-orders/DispatchButton";
 import { OrderDispatchCancel } from "@/components/dealer-orders/DispatchCancelButtons";
@@ -244,9 +244,9 @@ export function DealerOrdersTable({
                 <Td className="whitespace-nowrap">{formatOrderDateTime(o.created_at)}</Td>
                 <Td className="font-medium text-slate-900">
                   {o.dealers?.name ?? "—"}
-                  {o.dealers?.contact_email && (
+                  {buildEmailList(o.dealers?.contact_email, o.dealers?.cc_emails).length > 0 && (
                     <span className="mt-0.5 block">
-                      <CopyEmail email={o.dealers.contact_email} />
+                      <CopyEmailList primary={o.dealers?.contact_email} cc={o.dealers?.cc_emails} compact />
                     </span>
                   )}
                   {o.dispatch_batch_id && (
