@@ -41,3 +41,17 @@ export async function loadHubContracts(facilityIds: string[]): Promise<Map<strin
   }
   return result;
 }
+
+/**
+ * 시설별로 허브에 올려 둔 계약서 PDF 개수(파일 이름·내용은 읽지 않는다). 목록 테이블은 관리자만 읽을 수 있어서
+ * 여기서도 service-role로 개수만 센다. 1개 이상이면 "서명본 PDF 보관 중"으로 본다.
+ */
+export async function loadContractFileCounts(facilityIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (facilityIds.length === 0) return counts;
+  const { data } = await createAdminClient().from("facility_contract_files").select("facility_id").in("facility_id", facilityIds);
+  for (const r of (data ?? []) as { facility_id: string }[]) {
+    counts.set(r.facility_id, (counts.get(r.facility_id) ?? 0) + 1);
+  }
+  return counts;
+}

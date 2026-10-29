@@ -11,7 +11,7 @@ import type { FacilityTier, PartnershipStatus } from "@/lib/types/database.types
 import { facilityTierLabel } from "@/lib/partner/tier";
 import { partnershipStatusLabel, krRegionLabel } from "@/lib/utils/labels";
 import { facilityContractRecord } from "@/lib/partner/contract-record";
-import { loadHubContracts } from "@/lib/partner/contract-record-server";
+import { loadHubContracts, loadContractFileCounts } from "@/lib/partner/contract-record-server";
 import { contractStatusLabel } from "@/lib/partner/contract-template";
 
 export const dynamic = "force-dynamic";
@@ -45,10 +45,13 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
     .order("created_at", { ascending: false });
   const contractFiles = (contractFileRows ?? []) as ContractFileRow[];
 
+  const keptCount = (await loadContractFileCounts([facility.id])).get(facility.id) ?? 0;
+
   const hubContract = (await loadHubContracts([facility.id])).get(facility.id);
   const contractRecord = facilityContractRecord({
     hubStatus: hubContract?.status,
-    pdfKept: facility.contract_pdf_kept,
+    // 체크박스를 눌렀거나, 허브에 계약서 PDF를 올려 두었으면 "보관 중"으로 본다.
+    pdfKept: facility.contract_pdf_kept || keptCount > 0,
     partnershipStatus: facility.partnership_status,
   });
 
@@ -109,7 +112,13 @@ export default async function FacilityDetailPage({ params }: { params: { id: str
                 label="허브 전자서명"
                 value={hubContract && hubContract.status !== "void" ? contractStatusLabel[hubContract.status] : "해당 없음"}
               />
-              <InfoRow label="서명본 PDF 보관" value={facility.contract_pdf_kept ? "보관 중" : "아직 없음"} />
+              <InfoRow label="서명본 PDF 보관" value={
+                  keptCount > 0
+                    ? `보관 중 (허브에 ${keptCount}개 업로드)`
+                    : facility.contract_pdf_kept
+                      ? "보관 중 (체크 표시)"
+                      : "아직 없음"
+                } />
               <InfoRow
                 label="서명일"
                 value={
