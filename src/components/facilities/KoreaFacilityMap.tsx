@@ -1,35 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { krRegionLabel } from "@/lib/utils/labels";
+import {
+  KOREA_MAP_CREDIT,
+  KOREA_MAP_VIEWBOX,
+  KOREA_PROVINCES,
+} from "@/components/facilities/korea-map-data";
 import type { KrRegion } from "@/lib/types/database.types";
 
-// Approximate position of each 시/도 as a percentage within the map's
-// bounding box (lat 32.8–38.7, lon 125.0–129.7), so the layout is a rough
-// but real reflection of each region's location — not a precise polygon
-// boundary, just enough to show "where" at a glance. Jeju sits below a
-// divider since it's an island well south of the mainland.
-const REGION_POSITIONS: Record<KrRegion, { x: number; y: number }> = {
-  seoul: { x: 42.1, y: 19.2 },
-  incheon: { x: 36.2, y: 21.0 },
-  gyeonggi: { x: 48.9, y: 22.0 },
-  gangwon: { x: 68.1, y: 15.3 },
-  chungbuk: { x: 58.5, y: 32.2 },
-  chungnam: { x: 36.2, y: 36.4 },
-  daejeon: { x: 50.6, y: 39.8 },
-  sejong: { x: 48.5, y: 36.4 },
-  jeonbuk: { x: 44.7, y: 48.3 },
-  jeonnam: { x: 41.5, y: 65.3 },
-  gwangju: { x: 39.4, y: 60.0 },
-  gyeongbuk: { x: 81.9, y: 38.1 },
-  daegu: { x: 76.6, y: 48.0 },
-  gyeongnam: { x: 67.0, y: 57.6 },
-  busan: { x: 86.8, y: 59.7 },
-  ulsan: { x: 91.7, y: 53.6 },
-  jeju: { x: 32.6, y: 90.2 },
-};
-
-const REGION_ORDER = Object.keys(REGION_POSITIONS) as KrRegion[];
+// 시/도 모양을 그린 지도 위에 시설 수를 표시한다.
+// - 시설이 있는 시/도는 색이 진해지고(1곳 / 2~3곳 / 4곳 이상), 시설 수가 숫자로 표시된다.
+// - 마우스를 올리거나 키보드로 포커스하면 그 지역의 시설 이름이 보인다.
+// 지도 모양 데이터는 korea-map-data.ts(MapSVG, CC BY 4.0)에서 가져오며, 아래에 출처를 표시한다.
 
 interface MapFacility {
   id: string;
@@ -37,11 +19,13 @@ interface MapFacility {
   region: KrRegion | null;
 }
 
-function bucket(count: number): { className: string; textClassName: string } {
-  if (count === 0) return { className: "bg-slate-100 border-slate-200", textClassName: "text-slate-400" };
-  if (count === 1) return { className: "bg-brand-100 border-brand-100", textClassName: "text-brand-700" };
-  if (count <= 3) return { className: "bg-brand-500 border-brand-500", textClassName: "text-white" };
-  return { className: "bg-brand-700 border-brand-700", textClassName: "text-white" };
+const { width: MAP_W, height: MAP_H } = KOREA_MAP_VIEWBOX;
+
+function fillClass(count: number, active: boolean): string {
+  if (count === 0) return active ? "fill-slate-300" : "fill-slate-200";
+  if (count === 1) return active ? "fill-blue-300" : "fill-blue-200";
+  if (count <= 3) return active ? "fill-blue-500" : "fill-blue-400";
+  return active ? "fill-brand-700" : "fill-brand-500";
 }
 
 export function KoreaFacilityMap({ facilities }: { facilities: MapFacility[] }) {
@@ -58,71 +42,157 @@ export function KoreaFacilityMap({ facilities }: { facilities: MapFacility[] }) 
     return map;
   }, [facilities]);
 
-  const unassigned = facilities.filter((f) => !f.region);
+  const unassigned = facilities.filter((f) => !f.region).length;
+  const placed = facilities.length - unassigned;
+
+  const ranking = KOREA_PROVINCES.map((p) => ({ region: p.region, label: p.label, count: byRegion.get(p.region)?.length ?? 0 }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ko"));
+  const maxCount = ranking[0]?.count ?? 1;
+
+  // 마우스가 올라간 시/도를 맨 위에 그려서 테두리가 이웃에 가려지지 않게 한다.
+  const drawOrder = hovered
+    ? [...KOREA_PROVINCES.filter((p) => p.region !== hovered), ...KOREA_PROVINCES.filter((p) => p.region === hovered)]
+    : KOREA_PROVINCES;
+
+  const hoveredProvince = hovered ? KOREA_PROVINCES.find((p) => p.region === hovered) : null;
+  const hoveredList = hovered ? byRegion.get(hovered) ?? [] : [];
 
   return (
     <div>
-      <div className="relative mx-auto aspect-[5/6] w-full max-w-md">
-        {REGION_ORDER.map((region) => {
-          const pos = REGION_POSITIONS[region];
-          const list = byRegion.get(region) ?? [];
-          const { className, textClassName } = bucket(list.length);
-          const isHovered = hovered === region;
-          return (
-            <button
-              key={region}
-              type="button"
-              onMouseEnter={() => setHovered(region)}
-              onMouseLeave={() => setHovered((r) => (r === region ? null : r))}
-              onFocus={() => setHovered(region)}
-              onBlur={() => setHovered((r) => (r === region ? null : r))}
-              className={`absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-transform ${className} ${textClassName} ${isHovered ? "z-20 scale-110 shadow-md" : "z-10"}`}
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+      <div className="flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-center">
+        <div className="relative w-full max-w-sm shrink-0">
+          <svg
+            viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+            className="h-auto w-full"
+            role="group"
+            aria-label="시/도별 시설 지도"
+          >
+            {drawOrder.map((p) => {
+              const count = byRegion.get(p.region)?.length ?? 0;
+              const active = hovered === p.region;
+              return (
+                <path
+                  key={p.region}
+                  d={p.path}
+                  tabIndex={0}
+                  aria-label={`${p.label} ${count}곳`}
+                  strokeWidth={active ? 1.6 : 1.2}
+                  className={`cursor-pointer outline-none transition-colors ${fillClass(count, active)} ${active ? "stroke-slate-700" : "stroke-white"}`}
+                  onMouseEnter={() => setHovered(p.region)}
+                  onMouseLeave={() => setHovered((r) => (r === p.region ? null : r))}
+                  onFocus={() => setHovered(p.region)}
+                  onBlur={() => setHovered((r) => (r === p.region ? null : r))}
+                />
+              );
+            })}
+
+            {KOREA_PROVINCES.map((p) => {
+              const count = byRegion.get(p.region)?.length ?? 0;
+              if (count === 0) return null;
+              return (
+                <g key={`badge-${p.region}`} pointerEvents="none">
+                  <circle cx={p.anchor.x} cy={p.anchor.y} r={count >= 10 ? 13 : 11} className="fill-blue-900 stroke-white" strokeWidth={2} />
+                  <text
+                    x={p.anchor.x}
+                    y={p.anchor.y + 4}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight={700}
+                    className="fill-white"
+                  >
+                    {count}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+
+          {hoveredProvince && (
+            <div
+              className="pointer-events-none absolute z-20 w-44 rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-lg"
+              style={{
+                left: `${Math.min(78, Math.max(22, (hoveredProvince.anchor.x / MAP_W) * 100))}%`,
+                top: `${(hoveredProvince.anchor.y / MAP_H) * 100}%`,
+                transform:
+                  hoveredProvince.anchor.y > MAP_H * 0.7
+                    ? "translate(-50%, calc(-100% - 18px))"
+                    : "translate(-50%, 18px)",
+              }}
             >
-              <span>{krRegionLabel[region]}</span>
-              {list.length > 0 && <span className="mt-0.5 text-[10px] font-normal opacity-90">{list.length}</span>}
-
-              {isHovered && (
-                <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-lg">
-                  <p className="text-xs font-semibold text-slate-900">{krRegionLabel[region]}</p>
-                  {list.length > 0 ? (
-                    <ul className="mt-1 space-y-0.5">
-                      {list.map((f) => (
-                        <li key={f.id} className="truncate text-[11px] font-normal normal-case text-slate-600">
-                          {f.name}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-1 text-[11px] font-normal normal-case text-slate-400">등록된 시설 없음</p>
+              <p className="text-xs font-semibold text-slate-900">
+                {hoveredProvince.label} · {hoveredList.length}곳
+              </p>
+              {hoveredList.length > 0 ? (
+                <ul className="mt-1 space-y-0.5">
+                  {hoveredList.slice(0, 8).map((f) => (
+                    <li key={f.id} className="truncate text-[11px] text-slate-600">
+                      {f.name}
+                    </li>
+                  ))}
+                  {hoveredList.length > 8 && (
+                    <li className="text-[11px] text-slate-400">외 {hoveredList.length - 8}곳</li>
                   )}
-                </div>
+                </ul>
+              ) : (
+                <p className="mt-1 text-[11px] text-slate-400">등록된 시설 없음</p>
               )}
-            </button>
-          );
-        })}
+            </div>
+          )}
+        </div>
+
+        <div className="w-full max-w-sm md:w-56 md:max-w-none">
+          <p className="text-xs font-semibold text-slate-500">시/도별 시설</p>
+          {ranking.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {ranking.map((r) => (
+                <li
+                  key={r.region}
+                  onMouseEnter={() => setHovered(r.region)}
+                  onMouseLeave={() => setHovered((h) => (h === r.region ? null : h))}
+                  className={`rounded-md px-2 py-1 ${hovered === r.region ? "bg-slate-100" : ""}`}
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{r.label}</span>
+                    <span className="font-medium text-slate-900">{r.count}곳</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${(r.count / maxCount) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-slate-400">지도에 표시할 시설이 없습니다.</p>
+          )}
+          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+            지도에 표시된 시설 {placed}곳
+            {unassigned > 0 && <span className="text-slate-400"> · 지역 미지정 {unassigned}곳은 표시되지 않습니다</span>}
+          </p>
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-500">
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-500">
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full border border-slate-200 bg-slate-100" /> 없음
+          <span className="h-3 w-3 rounded-sm bg-slate-200" /> 없음
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full border border-brand-100 bg-brand-100" /> 1곳
+          <span className="h-3 w-3 rounded-sm bg-blue-200" /> 1곳
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full border border-brand-500 bg-brand-500" /> 2~3곳
+          <span className="h-3 w-3 rounded-sm bg-blue-400" /> 2~3곳
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full border border-brand-700 bg-brand-700" /> 4곳 이상
+          <span className="h-3 w-3 rounded-sm bg-brand-500" /> 4곳 이상
         </div>
       </div>
 
-      {unassigned.length > 0 && (
-        <p className="mt-3 text-center text-xs text-slate-400">
-          지역 미지정 시설 {unassigned.length}곳은 지도에 표시되지 않습니다.
-        </p>
-      )}
+      <p className="mt-2 text-center text-[10px] text-slate-400">
+        <a href={KOREA_MAP_CREDIT.href} target="_blank" rel="noreferrer" className="hover:underline">
+          {KOREA_MAP_CREDIT.label}
+        </a>{" "}
+        ({KOREA_MAP_CREDIT.license})
+      </p>
     </div>
   );
 }
