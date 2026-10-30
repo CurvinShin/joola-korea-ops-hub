@@ -374,8 +374,8 @@ on conflict (sku) do update set unit_price = excluded.unit_price;
 
 -- 5) [확인 필요 ③] 단종 표시 — 오더리스트 Status가 Discontinued인 3종:
 --    18521 Vision CGS 14 / 18541 Radius CGS 14 / 18505 Ben Johns Hyperion CFS 14
---    재고가 남아 있으면 딜러가 못 사게 되므로 자동으로 바꾸지 않았다. 필요하면 아래 줄의 주석(--)을 푸세요.
--- update products set discontinued = true where sku in ('18521', '18541', '18505');
+--    재고가 남아 있으면 딜러가 못 사게 되므로 자동으로 바꾸지 않았으나, 2026-10-30 재고 없음을 확인하고 적용하기로 했다(주석 해제).
+update products set discontinued = true where sku in ('18521', '18541', '18505');
 
 -- 6) 검산 — 아래 4개 상품의 소비자가가 이렇게 나오면 정상입니다:
 --    600165 = 25900, 604672 = 259000, 600556 = 429000, 18527 = 85900
