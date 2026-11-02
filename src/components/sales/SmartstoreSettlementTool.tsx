@@ -126,6 +126,17 @@ export function SmartstoreSettlementTool({
     setEnglishName(c.name);
   }
 
+  // SKU를 직접 입력하면 카탈로그(products)에서 같은 SKU를 찾아 영문 제품명을
+  // 바로 채운다. 못 찾으면 영문 제품명은 건드리지 않는다(직접 입력 가능).
+  const productBySku = useMemo(() => new Map(products.map((p) => [p.sku, p])), [products]);
+  const skuMatch = sku.trim() ? productBySku.get(sku.trim()) : undefined;
+
+  function handleSkuChange(value: string) {
+    setSku(value);
+    const match = productBySku.get(value.trim());
+    if (match) setEnglishName(match.name);
+  }
+
   function handleEditMapping(row: SkuMapRow) {
     setProductNo(row.product_no);
     setOptionInfo(row.option_info);
@@ -240,11 +251,16 @@ export function SmartstoreSettlementTool({
                 <Input
                   name="sku"
                   value={sku}
-                  onChange={(e) => setSku(e.target.value)}
+                  onChange={(e) => handleSkuChange(e.target.value)}
                   placeholder="예: 600592"
                   className="w-28"
                   required
                 />
+                {skuMatch ? (
+                  <p className="mt-1 text-[11px] text-emerald-600">등록된 상품 — 영문 제품명을 채웠습니다</p>
+                ) : sku.trim().length >= 5 ? (
+                  <p className="mt-1 text-[11px] text-amber-600">카탈로그에 없는 SKU — 영문 제품명을 직접 입력하세요</p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-xs text-slate-500">영문 제품명</label>
