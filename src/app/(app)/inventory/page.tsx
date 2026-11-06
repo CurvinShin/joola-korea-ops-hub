@@ -92,6 +92,9 @@ export default async function InventoryPage({
           )}
         </div>
         <div className="flex gap-2">
+          <Link href="/inventory/receiving">
+            <Button variant="secondary">입고전표 만들기</Button>
+          </Link>
           <Link href="/inventory/refresh">
             <Button variant="secondary">재고 최신화</Button>
           </Link>
