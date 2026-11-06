@@ -73,6 +73,18 @@ export default async function DealerDetailPage({ params }: { params: { id: strin
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
+              <CardTitle>배송지 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <p className="text-slate-900">{dealer.address ?? <span className="text-red-500">배송지가 등록되지 않았습니다.</span>}</p>
+              <p className="text-xs text-slate-500">
+                수령인 {dealer.ship_recipient ?? "—"} · 연락처 {dealer.contact_phone ?? "—"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>연간 누적 구매액 대비 MOQ 목표</CardTitle>
             </CardHeader>
             <CardContent>
