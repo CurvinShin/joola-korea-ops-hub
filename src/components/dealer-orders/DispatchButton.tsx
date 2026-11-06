@@ -14,10 +14,13 @@ export function DispatchButton({
   orderIds,
   draftCount,
   dispatchedCount,
+  unconfirmedNumberCount = 0,
 }: {
   orderIds: string[];
   draftCount: number;
   dispatchedCount: number;
+  /** 견적서 번호가 아직 "임시"인 선택 주문 수 — 출고 직전에 한 번 더 알려준다. */
+  unconfirmedNumberCount?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -29,7 +32,11 @@ export function DispatchButton({
       setMessage({ ok: false, text: `이미 발주한 주문이 ${dispatchedCount}건 포함되어 있습니다. 선택에서 빼주세요.` });
       return;
     }
-    const warn = draftCount > 0 ? `\n\n※ 입금 확인 전(임시) 주문이 ${draftCount}건 포함되어 있습니다.` : "";
+    const warn =
+      (draftCount > 0 ? `\n\n※ 입금 확인 전(임시) 주문이 ${draftCount}건 포함되어 있습니다.` : "") +
+      (unconfirmedNumberCount > 0
+        ? `\n\n※ 견적서 번호가 아직 "임시"인 주문이 ${unconfirmedNumberCount}건 포함되어 있습니다. 경리나라 견적서 번호와 맞는지 주문 상세에서 확정하셨나요?`
+        : "");
     if (!confirm(`선택한 ${orderIds.length}건으로 발주서를 만들까요?\n만들면 발주 번호가 배정되고 "발주 완료"로 표시됩니다.${warn}`)) return;
 
     setBusy(true);

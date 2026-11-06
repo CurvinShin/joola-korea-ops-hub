@@ -235,6 +235,8 @@ export interface DealerOrder {
   manual_shipping_fee: number | null;
   confirmed_total_amount: number | null;
   order_number: string | null;
+  // 경리나라 실제 견적서 번호와 맞춰 확정했는지(0079). false면 자동 발급된 임시 번호.
+  order_number_confirmed: boolean;
   payment_confirmed_at: string | null;
   payment_confirmed_by: string | null;
   shipped_at: string | null;
@@ -258,6 +260,8 @@ export interface DealerOrderAdminRow {
   manual_shipping_fee: number | null;
   confirmed_total_amount: number | null;
   order_number: string | null;
+  // 경리나라 실제 견적서 번호와 맞춰 확정했는지(0079). false면 자동 발급된 임시 번호.
+  order_number_confirmed: boolean;
   stock_deducted: boolean;
   shipped_at: string | null;
   dealers: {

@@ -9,6 +9,7 @@ import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels
 import { COMPANY_INFO } from "@/lib/config/company";
 import { CopyEmailList, buildEmailList } from "@/components/dealer-orders/CopyEmailList";
 import { updateDealerOrderItemsAdmin } from "@/lib/actions/dealer-order-admin";
+import { OrderNumberEditor } from "@/components/dealer-orders/OrderNumberEditor";
 import type { DealerOrderAdminRow, DealerCatalogRow } from "@/lib/types/database.types";
 
 const currency = (n: number) =>
@@ -315,6 +316,11 @@ export function OrderDetailModal({
             </div>
 
             <div className="max-h-[70vh] overflow-y-auto p-5">
+              <OrderNumberEditor
+                orderId={order.id}
+                orderNumber={order.order_number}
+                confirmed={order.order_number_confirmed}
+              />
               <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                   <p className="mb-1.5 text-xs font-semibold text-slate-500">배송지 정보</p>

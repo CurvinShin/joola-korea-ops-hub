@@ -86,6 +86,7 @@ export function DealerOrdersTable({
   const selectedRowsList = rows.filter((o) => selected.has(o.id));
   const draftSelected = selectedRowsList.filter((o) => o.status === "draft").length;
   const dispatchedSelected = selectedRowsList.filter((o) => !!o.dispatch_batch_id).length;
+  const unconfirmedNumberSelected = selectedRowsList.filter((o) => !o.order_number_confirmed).length;
 
   const { tsv, rowCount } = useMemo(() => {
     const selectedRows = rows
@@ -178,7 +179,12 @@ export function DealerOrdersTable({
             전체 해제
           </Button>
           <ShippingListCopyButton tsv={tsv} rowCount={rowCount} />
-          <DispatchButton orderIds={[...selected]} draftCount={draftSelected} dispatchedCount={dispatchedSelected} />
+          <DispatchButton
+            orderIds={[...selected]}
+            draftCount={draftSelected}
+            dispatchedCount={dispatchedSelected}
+            unconfirmedNumberCount={unconfirmedNumberSelected}
+          />
         </div>
       </div>
 
