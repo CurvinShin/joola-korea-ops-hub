@@ -126,6 +126,7 @@ export default async function DealersPage({
                   <Th>상태</Th>
                   <Th>지역</Th>
                   <Th>할인율</Th>
+                  <Th>배송지</Th>
                   <Th>계약 종료일</Th>
                   <Th className="text-right">
                     올해 구매액
@@ -152,6 +153,16 @@ export default async function DealersPage({
                     </Td>
                     <Td>{d.region ?? "—"}</Td>
                     <Td>{d.discount_rate}%</Td>
+                    <Td className="min-w-[220px] text-xs">
+                      {d.address ? (
+                        <>
+                          <div className="text-slate-700">{d.address}</div>
+                          {d.ship_recipient && <div className="text-slate-400">수령인 {d.ship_recipient}</div>}
+                        </>
+                      ) : (
+                        <span className="text-red-500">배송지 없음</span>
+                      )}
+                    </Td>
                     <Td>{d.contract_end ?? "—"}</Td>
                     <Td className="text-right">
                       {d.ytd_quote_amount != null ? currency(Number(d.ytd_quote_amount)) : "—"}

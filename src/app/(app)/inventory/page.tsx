@@ -29,7 +29,13 @@ export default async function InventoryPage({
 
   // 카테고리·서브카테고리·검색은 모두 InventoryBrowser 안에서 즉시(클라이언트 사이드)
   // 처리하므로, 여기서는 전체 목록을 한 번만 불러온다 (제품 수가 많지 않아 충분히 빠름).
-  const { data: rows, error } = await supabase.from("inventory_status").select("*").order("name");
+  const { data: rawRows, error } = await supabase.from("inventory_status").select("*").order("name");
+
+  // 소비자가(MAP)는 inventory_status 뷰에 없어서 products에서 따로 읽어 붙인다
+  // (목록에서 35%·30% 딜러가를 바로 보여주기 위함).
+  const { data: priceRows } = await supabase.from("products").select("id, unit_price");
+  const priceById = new Map((priceRows ?? []).map((p) => [p.id as string, p.unit_price == null ? null : Number(p.unit_price)]));
+  const rows = rawRows?.map((r) => ({ ...r, unit_price: priceById.get(r.product_id) ?? null }));
 
   const editRow = searchParams.edit ? rows?.find((r) => r.product_id === searchParams.edit) : undefined;
 

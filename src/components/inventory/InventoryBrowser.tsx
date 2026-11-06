@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { CopyNameButton } from "@/components/inventory/CopyNameButton";
 import { cn } from "@/lib/utils/cn";
+import { calcDealerUnitPrice } from "@/lib/utils/pricing";
 import { CATEGORY_ORDER } from "@/lib/utils/categoryOrder";
 import { INVENTORY_STATUSES, type InventoryStatus } from "@/lib/utils/inventory-status";
 import type { CatalogGap, InventoryStatusRow } from "@/lib/types/database.types";
@@ -37,6 +38,53 @@ const STATUS_HINT: Partial<Record<InventoryStatus, string>> = {
   discontinued: "단종 처리된 품목입니다.",
   gaps: "실사 재고에는 있지만 가격/유형 정보가 없어 아직 제품으로 등록하지 못한 품목입니다. “제품으로 등록”을 누르면 SKU·상품코드·제품명·수량이 채워진 입력 창이 열립니다.",
 };
+
+// 딜러가(공급가, 부가세 제외) — 딜러 주문 화면과 같은 공식(calcDealerUnitPrice)을 쓴다.
+// 고정 딜러가가 있으면 35%·30% 모두 그 값이고, 의류는 할인율과 무관하게 일괄 60% 할인이다.
+function formatWon(n: number) {
+  return `${n.toLocaleString("ko-KR")}원`;
+}
+
+function PriceCells({ r }: { r: InventoryStatusRow }) {
+  const map = r.unit_price;
+  if (map == null) {
+    return (
+      <>
+        <Td className="whitespace-nowrap text-right text-xs">
+          <span className="font-semibold text-red-600">가격 없음</span>
+        </Td>
+        <Td className="whitespace-nowrap text-right text-xs text-slate-400">
+          {r.fixed_dealer_price != null ? formatWon(r.fixed_dealer_price) : "—"}
+        </Td>
+        <Td className="whitespace-nowrap text-right text-xs text-slate-400">
+          {r.fixed_dealer_price != null ? formatWon(r.fixed_dealer_price) : "—"}
+        </Td>
+      </>
+    );
+  }
+  const price = (rate: number) =>
+    calcDealerUnitPrice({
+      mapPrice: map,
+      productType: r.product_type,
+      discountRatePercent: rate,
+      isDemo: false,
+      fixedDealerPrice: r.fixed_dealer_price,
+    });
+  const fixedMark = r.fixed_dealer_price != null ? <span className="ml-1 text-[10px] text-amber-600">고정</span> : null;
+  return (
+    <>
+      <Td className="whitespace-nowrap text-right text-xs">{formatWon(map)}</Td>
+      <Td className="whitespace-nowrap text-right text-xs">
+        {formatWon(price(35))}
+        {fixedMark}
+      </Td>
+      <Td className="whitespace-nowrap text-right text-xs">
+        {formatWon(price(30))}
+        {fixedMark}
+      </Td>
+    </>
+  );
+}
 
 function statusHref(status: InventoryStatus, extra?: string) {
   const params: string[] = [];
@@ -326,6 +374,15 @@ export function InventoryBrowser({
               <Th>상품코드</Th>
               <Th>제품</Th>
               <Th>카테고리</Th>
+              <Th className="text-right">소비자가</Th>
+              <Th className="text-right">
+                35% 딜러가
+                <span className="block text-[10px] font-normal text-slate-400">부가세 제외</span>
+              </Th>
+              <Th className="text-right">
+                30% 딜러가
+                <span className="block text-[10px] font-normal text-slate-400">부가세 제외</span>
+              </Th>
               <Th>{status === "backorder" ? "현재고 (부족)" : "가용 재고"}</Th>
               <Th>입고 예정</Th>
               <Th>상태</Th>
@@ -357,6 +414,7 @@ export function InventoryBrowser({
                   {r.category ?? "—"}
                   {r.subcategory && <span className="text-slate-400"> · {r.subcategory}</span>}
                 </Td>
+                <PriceCells r={r} />
                 <Td>
                   {status === "backorder" ? (
                     <span className="font-semibold text-red-600">

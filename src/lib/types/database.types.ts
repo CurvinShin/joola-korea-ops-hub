@@ -153,6 +153,9 @@ export interface InventoryStatusRow {
   new_arrival_batch: string | null;
   // 이지어드민 상품코드 (products.ezadmin_code). 화면 용어는 "상품코드".
   ezadmin_code: string | null;
+  // 소비자가(MAP, products.unit_price). inventory_status 뷰에는 없고, /inventory 페이지가
+  // products에서 따로 읽어 붙인다 — 35%·30% 딜러가 표시용.
+  unit_price?: number | null;
 }
 
 // Row shape of the `dealer_catalog` view — what a dealer-portal login is
