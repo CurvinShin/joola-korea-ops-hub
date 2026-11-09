@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { mergeDealerDraftOrders } from "@/lib/actions/dealer-portal";
+import { deleteMyDealerOrder, mergeDealerDraftOrders } from "@/lib/actions/dealer-portal";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
 
 const currency = (n: number) =>
@@ -56,6 +56,23 @@ export function MyOrdersList({ orders }: { orders: MyOrderRow[] }) {
       setResult({ ok: res.ok, text: res.message });
       if (res.ok) {
         setMergeSelected(new Set());
+        router.refresh();
+      }
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("이 주문을 완전히 삭제할까요? 되돌릴 수 없습니다.")) return;
+    setResult(null);
+    startTransition(async () => {
+      const res = await deleteMyDealerOrder(id);
+      setResult({ ok: res.ok, text: res.message });
+      if (res.ok) {
+        setMergeSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
         router.refresh();
       }
     });
@@ -118,6 +135,16 @@ export function MyOrdersList({ orders }: { orders: MyOrderRow[] }) {
                 <a href={`/order?edit=${o.id}`} className="text-xs text-brand-600 hover:underline">
                   수정
                 </a>
+              )}
+              {o.status === "draft" && (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => handleDelete(o.id)}
+                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                >
+                  삭제
+                </button>
               )}
               {o.order_type === "demo" && <Badge tone="purple">{dealerOrderTypeLabel[o.order_type]}</Badge>}
               <Badge tone="blue">{dealerOrderStatusLabel[o.status] ?? o.status}</Badge>

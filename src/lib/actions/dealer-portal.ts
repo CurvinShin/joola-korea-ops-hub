@@ -198,3 +198,39 @@ export async function mergeDealerDraftOrders(orderIds: string[]): Promise<MergeO
   }
   return result;
 }
+
+/**
+ * 딜러 본인이 입금 확인 전(draft) 주문을 완전히 삭제한다.
+ * 견적서 번호는 되돌리지 않는다(번호가 건너뛰어도 그대로 둠).
+ * RLS(dealer_orders_delete)도 본인 draft만 허용하지만, 서버에서 한 번 더 확인한다.
+ */
+export async function deleteMyDealerOrder(orderId: string): Promise<PlaceOrderResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "로그인이 필요합니다." };
+
+  const { data: profile } = await supabase.from("profiles").select("dealer_id").eq("id", user.id).single();
+  if (!profile?.dealer_id) {
+    return { ok: false, message: "계정에 연결된 딜러 정보가 없습니다. 관리자에게 문의해주세요." };
+  }
+
+  const { data: existing } = await supabase
+    .from("dealer_orders")
+    .select("id, dealer_id, status")
+    .eq("id", orderId)
+    .single();
+  if (!existing || existing.dealer_id !== profile.dealer_id) {
+    return { ok: false, message: "주문을 찾을 수 없습니다." };
+  }
+  if (existing.status !== "draft") {
+    return { ok: false, message: "입금 확인이 끝난 주문은 직접 삭제할 수 없습니다. 담당자에게 문의해주세요." };
+  }
+
+  const { error } = await supabase.from("dealer_orders").delete().eq("id", orderId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/order");
+  return { ok: true, message: "주문을 삭제했습니다." };
+}

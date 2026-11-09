@@ -466,41 +466,84 @@ export async function reopenDealerOrder(orderId: string): Promise<{ ok: true } |
 }
 
 /**
- * 취소된 주문을 관리자 화면에서 완전히 삭제 (dealer_order_items는
- * on delete cascade로 함께 삭제됨). 목록에서 취소된 주문이 계속 쌓여
- * 보이는 걸 정리하기 위한 것으로, 이미 "취소" 상태인 주문만 지울 수 있게
- * 서버에서도 다시 한 번 확인한다 — 진행 중인 주문이 실수로 삭제되는 것을
- * 막기 위해서다. (재고는 취소 시점에 이미 rejectDealerOrder에서 복원되었으므로
- * 여기서는 건드리지 않는다.)
+ * 출고 전 주문(임시/입금확인/취소)을 관리자 화면에서 완전히 삭제한다
+ * (dealer_order_items는 on delete cascade로 함께 삭제됨).
+ *  - 이미 출고됐거나(shipped/delivered) 발주서에 묶인 주문은 삭제할 수 없다.
+ *  - 재고가 이미 차감된 주문(stock_deducted)이면 차감분을 먼저 복원한다.
+ *  - 견적서 번호는 기본적으로 되돌리지 않는다(번호가 비어도 그대로 둠).
+ *    releaseNumber=true일 때만, 그 번호가 해당 딜러의 "가장 최근 발급 번호"인
+ *    경우에 한해 다음 번호를 되돌린다. 경리나라 견적서와 맞춘 번호
+ *    (order_number_confirmed)는 어떤 경우에도 되돌리지 않는다.
  */
-export async function deleteDealerOrder(orderId: string) {
+export async function deleteDealerOrder(
+  orderId: string,
+  releaseNumber: boolean = false
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   const supabase = createClient();
 
   const { data: order, error: orderErr } = await supabase
     .from("dealer_orders")
-    .select("id, status, order_number, dealer_id")
+    .select("id, status, order_number, order_number_confirmed, dealer_id, stock_deducted, dispatch_batch_id")
     .eq("id", orderId)
     .single();
-  if (orderErr || !order) throw new Error("주문을 찾을 수 없습니다.");
-  if (order.status !== "cancelled") {
-    throw new Error("취소된 주문만 삭제할 수 있습니다.");
+  if (orderErr || !order) return { ok: false, message: "주문을 찾을 수 없습니다." };
+
+  if (order.status === "shipped" || order.status === "delivered") {
+    return { ok: false, message: "출고된 주문은 삭제할 수 없습니다." };
+  }
+  if (order.dispatch_batch_id) {
+    return { ok: false, message: "이미 발주서에 포함된 주문입니다. 먼저 '발주 취소'를 해주세요." };
+  }
+
+  // 재고가 차감된 상태라면 먼저 되돌린다.
+  if (order.stock_deducted) {
+    const { data: items, error: itemsErr } = await supabase
+      .from("dealer_order_items")
+      .select("product_id, quantity")
+      .eq("order_id", orderId);
+    if (itemsErr) return { ok: false, message: itemsErr.message };
+
+    for (const item of items ?? []) {
+      const { data: inv, error: invErr } = await supabase
+        .from("inventory")
+        .select("current_stock")
+        .eq("product_id", item.product_id)
+        .single();
+      if (invErr) return { ok: false, message: `재고 조회 실패: ${invErr.message}` };
+      const nextStock = (inv?.current_stock ?? 0) + item.quantity;
+      const { error: updErr } = await supabase
+        .from("inventory")
+        .update({ current_stock: nextStock, updated_at: new Date().toISOString() })
+        .eq("product_id", item.product_id);
+      if (updErr) return { ok: false, message: `재고 복원 실패: ${updErr.message}` };
+    }
   }
 
   const { error } = await supabase.from("dealer_orders").delete().eq("id", orderId);
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, message: error.message };
 
-  // 방금 지운 주문이 그 딜러에게 가장 최근에 발급된 번호였다면(=그 뒤로
-  // 다른 번호가 아직 안 나갔다면), 다음 발급 때 같은 번호를 다시 쓸 수
-  // 있게 되돌린다 — 실수로 만든 주문을 지웠다고 번호가 건너뛰지 않도록.
-  if (order.order_number && order.dealer_id) {
-    const { error: releaseError } = await supabase.rpc("release_dealer_order_number_if_last", {
-      p_dealer_id: order.dealer_id,
-      p_order_number: order.order_number,
-    });
-    if (releaseError) {
-      console.error("release_dealer_order_number_if_last failed", releaseError);
+  let numberNote = "";
+  if (order.order_number) {
+    if (order.order_number_confirmed) {
+      numberNote = " 견적서 번호는 경리나라와 맞춘 번호라 되돌리지 않았습니다.";
+    } else if (releaseNumber && order.dealer_id) {
+      const { error: releaseError } = await supabase.rpc("release_dealer_order_number_if_last", {
+        p_dealer_id: order.dealer_id,
+        p_order_number: order.order_number,
+      });
+      if (releaseError) {
+        console.error("release_dealer_order_number_if_last failed", releaseError);
+        numberNote = " 번호 되돌리기는 실패했습니다.";
+      } else {
+        numberNote = " 마지막 번호였다면 번호를 되돌렸습니다.";
+      }
+    } else {
+      numberNote = " 견적서 번호는 되돌리지 않았습니다.";
     }
   }
 
   revalidatePath("/dealer-orders");
+  revalidatePath("/inventory");
+  revalidatePath("/order");
+  return { ok: true, message: "주문을 삭제했습니다." + numberNote };
 }
