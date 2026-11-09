@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { dealerOrderStatusLabel, dealerOrderTypeLabel } from "@/lib/utils/labels";
+import { DeleteMyOrderButton } from "@/components/order/DeleteMyOrderButton";
 import { fillProductNames } from "@/lib/queries/dealer-order-product-names";
 
 export const dynamic = "force-dynamic";
@@ -303,6 +304,7 @@ export default async function OrderHistoryPage({
                             주문 수정하기
                           </Link>
                         )}
+                        {o.status === "draft" && <DeleteMyOrderButton orderId={o.id} />}
                         <Link href={`/order?reorder=${o.id}`} className="font-medium text-brand-600 hover:underline">
                           다시 주문
                         </Link>
