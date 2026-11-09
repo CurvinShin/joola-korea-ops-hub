@@ -28,6 +28,9 @@ export function DealerOrderRowActions({
   manualShippingFee,
   suggestedTotal,
   confirmedTotalAmount,
+  orderNumber,
+  orderNumberConfirmed,
+  dispatched,
 }: {
   orderId: string;
   status: string;
@@ -36,6 +39,9 @@ export function DealerOrderRowActions({
   manualShippingFee: number | null;
   suggestedTotal: number;
   confirmedTotalAmount: number | null;
+  orderNumber: string | null;
+  orderNumberConfirmed: boolean;
+  dispatched: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [shippingInput, setShippingInput] = useState(
@@ -54,6 +60,27 @@ export function DealerOrderRowActions({
   // 서버 액션이 그냥 에러를 throw하기만 하고 화면에서 아무것도 잡지 않아서,
   // 실패해도 버튼을 눌렀는데 아무 반응이 없는 것처럼만 보였다.
   const [error, setError] = useState<string | null>(null);
+
+  // 출고 전 주문(임시/입금확인/취소)을 완전히 삭제. 번호가 있고 경리나라와 맞춘
+  // 번호가 아니면, 삭제할 때마다 "번호 되돌리기" 여부를 한 번 더 묻는다(기본: 안 되돌림).
+  function handleDelete() {
+    setError(null);
+    const stockNote =
+      status === "confirmed" ? "\n입금 확인으로 차감된 재고는 복원됩니다." : "";
+    if (!confirm(`이 주문을 완전히 삭제할까요? 되돌릴 수 없습니다.${stockNote}`)) return;
+    let releaseNumber = false;
+    if (orderNumber && !orderNumberConfirmed) {
+      releaseNumber = confirm(
+        `견적서 번호(${orderNumber})를 되돌릴까요?\n[확인] 되돌림 (마지막 번호일 때만 적용)\n[취소] 되돌리지 않음 (번호는 건너뜀)`
+      );
+    }
+    startTransition(async () => {
+      const result = await deleteDealerOrder(orderId, releaseNumber);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  const canDelete = (status === "draft" || status === "confirmed" || status === "cancelled") && !dispatched;
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -121,6 +148,9 @@ export function DealerOrderRowActions({
             onClick={() => startTransition(() => rejectDealerOrder(orderId))}
           >
             거절
+          </Button>
+          <Button size="sm" variant="danger" disabled={isPending} onClick={handleDelete}>
+            삭제
           </Button>
         </div>
       ) : (
@@ -197,20 +227,6 @@ export function DealerOrderRowActions({
                 취소 되돌리기
               </Button>
             )}
-            {status === "cancelled" && (
-              <Button
-                size="sm"
-                variant="danger"
-                disabled={isPending}
-                onClick={() => {
-                  if (confirm("이 취소된 주문을 완전히 삭제할까요? 되돌릴 수 없습니다.")) {
-                    startTransition(() => deleteDealerOrder(orderId));
-                  }
-                }}
-              >
-                삭제
-              </Button>
-            )}
             {status !== "cancelled" && (
               <Button
                 size="sm"
@@ -236,6 +252,11 @@ export function DealerOrderRowActions({
                 onClick={() => startTransition(() => rejectDealerOrder(orderId))}
               >
                 취소(재고 복원)
+              </Button>
+            )}
+            {canDelete && (
+              <Button size="sm" variant="danger" disabled={isPending} onClick={handleDelete}>
+                삭제
               </Button>
             )}
           </div>

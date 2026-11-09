@@ -307,6 +307,9 @@ export function DealerOrdersTable({
                       Number(o.total_amount) + Number(o.auto_shipping_fee) + Number(o.manual_shipping_fee ?? 0)
                     }
                     confirmedTotalAmount={o.confirmed_total_amount != null ? Number(o.confirmed_total_amount) : null}
+                    orderNumber={o.order_number ?? null}
+                    orderNumberConfirmed={!!o.order_number_confirmed}
+                    dispatched={!!o.dispatch_batch_id}
                   />
                 </Td>
               </Tr>
