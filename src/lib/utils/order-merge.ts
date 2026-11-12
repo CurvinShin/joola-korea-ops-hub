@@ -80,7 +80,7 @@ export async function mergeDraftOrders(
   // 이 주문들 자신을 "이미 주문한 수량"으로 또 세지 않도록 전부 제외한다 —
   // 안 그러면 이미 한도 안에서 나눠 주문한 걸 합치기만 해도 한도 초과로
   // 잘못 거부될 수 있다.
-  const priced = await priceCartItemsForDealer(supabase, dealerId, combinedItems, { excludeOrderIds: uniqueIds });
+  const priced = await priceCartItemsForDealer(supabase, dealerId, combinedItems, { excludeOrderIds: uniqueIds, skipShippingWaiver: true });
   if (!priced.ok) return priced;
 
   const sorted = [...orders].sort((a, b) => {

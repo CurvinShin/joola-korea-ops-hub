@@ -167,7 +167,13 @@ export function OrderDetailModal({
   const itemsSubtotal = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
   const shippingFee = Number(order.auto_shipping_fee ?? 0) + Number(order.manual_shipping_fee ?? 0);
   // 입금 확인 시 관리자가 견적서에 맞춰 직접 고쳐 입력한 금액이 있으면 그것을, 없으면(아직 입금 전) 상품 공급가액 + 배송비로 계산한 예상 금액을 보여준다.
-  const grandTotal = order.confirmed_total_amount != null ? Number(order.confirmed_total_amount) : itemsSubtotal + shippingFee;
+  // 견적서처럼 품목별 세액(공급가액의 10%)을 보여준다. 배송비는 부가세 포함 금액으로 저장돼 있어 공급가액/세액으로 나눠 표시한다.
+  const itemVat = (it: { unit_price: number; quantity: number }) => Math.round(it.unit_price * it.quantity * 0.1);
+  const itemsVat = items.reduce((sum, it) => sum + itemVat(it), 0);
+  const shippingSupply = Math.round(shippingFee / 1.1);
+  const shippingVat = shippingFee - shippingSupply;
+  const estimatedTotal = itemsSubtotal + itemsVat + shippingFee;
+  const grandTotal = order.confirmed_total_amount != null ? Number(order.confirmed_total_amount) : estimatedTotal;
   const isConfirmedTotal = order.confirmed_total_amount != null;
   const dealer = order.dealers;
   // 입금 확인(재고 차감) 전 주문만 관리자가 직접 고칠 수 있게 한다 — 그
@@ -368,6 +374,7 @@ export function OrderDetailModal({
                         <Th className="text-right">수량</Th>
                         <Th className="text-right">단가</Th>
                         <Th className="text-right">공급가액</Th>
+                        <Th className="text-right">세액</Th>
                         <Th>비고</Th>
                       </Tr>
                     </Thead>
@@ -380,6 +387,7 @@ export function OrderDetailModal({
                           <Td className="text-right">{it.quantity}</Td>
                           <Td className="text-right">{currency(it.unit_price)}</Td>
                           <Td className="text-right">{currency(it.unit_price * it.quantity)}</Td>
+                          <Td className="text-right">{currency(itemVat(it))}</Td>
                           <Td>{it.is_demo && <Badge tone="purple">데모</Badge>}</Td>
                         </Tr>
                       ))}
@@ -389,8 +397,9 @@ export function OrderDetailModal({
                           <Td>—</Td>
                           <Td>배송비</Td>
                           <Td className="text-right">1</Td>
-                          <Td className="text-right">{currency(shippingFee)}</Td>
-                          <Td className="text-right">{currency(shippingFee)}</Td>
+                          <Td className="text-right">{currency(shippingSupply)}</Td>
+                          <Td className="text-right">{currency(shippingSupply)}</Td>
+                          <Td className="text-right">{currency(shippingVat)}</Td>
                           <Td></Td>
                         </Tr>
                       )}
@@ -404,11 +413,15 @@ export function OrderDetailModal({
                         <span>{currency(itemsSubtotal)}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">
-                        <span>배송비</span>
-                        <span>{shippingFee > 0 ? currency(shippingFee) : "미확정"}</span>
+                        <span>배송비 (공급가액)</span>
+                        <span>{shippingFee > 0 ? currency(shippingSupply) : "미확정"}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>부가세 (10%)</span>
+                        <span>{currency(itemsVat + shippingVat)}</span>
                       </div>
                       <div className="flex justify-between border-t border-slate-100 pt-1 text-base font-semibold text-slate-900">
-                        <span>{isConfirmedTotal ? "합계 (확정)" : "합계 (예상)"}</span>
+                        <span>{isConfirmedTotal ? "합계 (확정)" : "합계 (예상, 부가세 포함)"}</span>
                         <span>{currency(grandTotal)}</span>
                       </div>
                     </div>

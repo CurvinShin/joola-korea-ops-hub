@@ -25,6 +25,13 @@ const SHIPPING_BOX_SIZE = 10; // 패들 10개당 배송 1박스
 // 관리자 쪽(OrderDetailModal 등)에서도 그대로 더하기만 한다.
 export const SHIPPING_FEE_PER_BOX = 5500;
 
+// 배송비 면제: 견적서(주문) 1건당 부가세 포함 500만원 이상이면 자동 배송비를 받지 않는다.
+// 같은 날 여러 건을 합친 금액은 면제 대상이 아니므로, 주문 하나씩만 따로 판단한다.
+export const SHIPPING_WAIVER_THRESHOLD = 5_000_000;
+export function isShippingWaived(subtotalExVat: number): boolean {
+  return Math.round(subtotalExVat * 1.1) >= SHIPPING_WAIVER_THRESHOLD;
+}
+
 type ActivePromotion = {
   promotionId: string;
   promoGroup: string;
@@ -144,7 +151,7 @@ export async function priceCartItemsForDealer(
   supabase: ReturnType<typeof createClient>,
   dealerId: string,
   items: { productId: string; quantity: number; isDemo: boolean }[],
-  opts?: { excludeOrderIds?: string[] }
+  opts?: { excludeOrderIds?: string[]; skipShippingWaiver?: boolean }
 ): Promise<PricedCart> {
   const { data: dealer, error: dealerError } = await supabase
     .from("dealers")
@@ -274,7 +281,9 @@ export async function priceCartItemsForDealer(
   }
 
   const autoShippingBoxes = Math.ceil(paddleQty / SHIPPING_BOX_SIZE);
-  const autoShippingFee = autoShippingBoxes * SHIPPING_FEE_PER_BOX;
+  // 주문 합치기처럼 여러 건을 하나로 묶는 경우엔 합친 금액으로 면제하지 않는다(skipShippingWaiver).
+  const shippingWaived = !opts?.skipShippingWaiver && isShippingWaived(subtotal);
+  const autoShippingFee = shippingWaived ? 0 : autoShippingBoxes * SHIPPING_FEE_PER_BOX;
   const allDemo = rows.every((r) => r.is_demo);
 
   return { ok: true, dealerId: dealer.id, rows, subtotal, autoShippingBoxes, autoShippingFee, allDemo };
