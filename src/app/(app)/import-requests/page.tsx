@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cancelImportBatch, confirmImportBatch, markImportReceived, undoImportReceived } from "@/lib/actions/import-requests";
+import { addImportNeed, deleteImportNeed, setImportNeedDone } from "@/lib/actions/import-needs";
+import { Input, Label } from "@/components/ui/Input";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -31,7 +33,7 @@ type Row = {
 export default async function ImportRequestsPage({
   searchParams,
 }: {
-  searchParams: { batch?: string; created?: string; dealers?: string; failed?: string; error?: string; undone?: string; deleted?: string };
+  searchParams: { batch?: string; created?: string; dealers?: string; failed?: string; error?: string; undone?: string; deleted?: string; need_added?: string; need_deleted?: string; need_updated?: string; showdone?: string };
 }) {
   const supabase = createClient();
 
@@ -50,6 +52,20 @@ export default async function ImportRequestsPage({
     .order("created_at", { ascending: true })
     .limit(3000);
   const all = (data ?? []) as unknown as Row[];
+
+  // 상시 수입 필요 목록 (직접 입력). 테이블이 아직 없으면(마이그레이션 전) 안내만 보여준다.
+  type NeedRow = { id: string; sku: string; product_name: string; category: string | null; quantity: number; note: string | null; status: string; created_at: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: needData, error: needErr } = await (supabase as any)
+    .from("import_needs")
+    .select("id, sku, product_name, category, quantity, note, status, created_at")
+    .order("created_at", { ascending: true })
+    .limit(500);
+  const allNeeds = (needData ?? []) as NeedRow[];
+  const showDone = searchParams.showdone === "1";
+  const openNeeds = allNeeds.filter((n) => n.status === "open");
+  const doneNeeds = allNeeds.filter((n) => n.status === "done");
+  const shownNeeds = showDone ? allNeeds : openNeeds;
 
   // 확정된 배치 목록(최신순)
   const batchMap = new Map<string, { id: string; at: string; qty: number; products: Set<string>; open: number; received: number }>();
@@ -121,6 +137,113 @@ export default async function ImportRequestsPage({
       )}
       {searchParams.error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{searchParams.error}</p>}
       {error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error.message}</p>}
+
+      {(searchParams.need_added || searchParams.need_deleted || searchParams.need_updated) && (
+        <p className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          {searchParams.need_added ? "상시 수입 필요 목록에 추가했습니다." : searchParams.need_deleted ? "목록에서 삭제했습니다." : "상태를 바꿨습니다."}
+        </p>
+      )}
+
+      {/* 수입요청서 만들기: 딜러 접수 요청 + 상시 필요 목록 + 본사 재고 CSV → 엑셀 */}
+      <Card id="needs">
+        <CardHeader>
+          <CardTitle>수입요청서 만들기</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-xs leading-relaxed text-slate-500">
+            수입이 필요한 시기에 본사 재고 CSV(searchresults)를 올리면, 딜러 접수 요청과 아래 &ldquo;상시 수입 필요 목록&rdquo;을 SKU별로
+            합치고 본사 가용·한국 3PL 가용과 비교해 수입요청서(엑셀)를 만들어 드립니다. 내려받기만 하며 요청을 확정하거나 목록을 바꾸지 않습니다.
+          </p>
+
+          <form action="/import-requests/generate" method="post" encType="multipart/form-data" className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="hq_csv">본사 재고 CSV (선택)</Label>
+              <input id="hq_csv" name="hq_csv" type="file" accept=".csv,text/csv" className="block text-sm text-slate-700" />
+            </div>
+            <label className="flex items-center gap-1.5 text-sm text-slate-700">
+              <input type="checkbox" name="include_dealer" defaultChecked /> 딜러 접수 요청 {pendingCount}건 포함
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-slate-700">
+              <input type="checkbox" name="include_needs" defaultChecked /> 상시 필요 목록 {openNeeds.length}건 포함
+            </label>
+            <Button type="submit">수입요청서 엑셀 만들기</Button>
+          </form>
+
+          <div className="border-t border-slate-100 pt-4">
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">상시 수입 필요 목록 (직접 입력)</h3>
+            {needErr ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                상시 수입 필요 목록 테이블이 아직 없습니다. 마이그레이션 0080을 적용하면 사용할 수 있습니다.
+              </p>
+            ) : (
+              <>
+                <form action={addImportNeed} className="grid gap-2 sm:grid-cols-[110px_1fr_90px_120px_1fr_auto] sm:items-end">
+                  <div>
+                    <Label htmlFor="n_sku">SKU</Label>
+                    <Input id="n_sku" name="sku" required placeholder="예: 600556" />
+                  </div>
+                  <div>
+                    <Label htmlFor="n_name">상품명 (비우면 Hub에서 가져옴)</Label>
+                    <Input id="n_name" name="product_name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="n_qty">수량</Label>
+                    <Input id="n_qty" name="quantity" type="number" min={1} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="n_cat">제품군 (선택)</Label>
+                    <Input id="n_cat" name="category" placeholder="비우면 자동" />
+                  </div>
+                  <div>
+                    <Label htmlFor="n_note">메모</Label>
+                    <Input id="n_note" name="note" placeholder="예: SSK 대표님 지참" />
+                  </div>
+                  <Button type="submit">추가</Button>
+                </form>
+
+                {shownNeeds.length === 0 ? (
+                  <p className="py-4 text-sm text-slate-400">등록된 수입 필요 품목이 없습니다.</p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
+                    {shownNeeds.map((n) => (
+                      <li key={n.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <span className={`min-w-0 ${n.status === "done" ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                          <span className="text-xs text-slate-400">{n.sku}</span> {n.product_name || "(상품명 없음)"}
+                          {n.category ? <span className="ml-1 text-xs text-slate-400">[{n.category}]</span> : null}
+                          {n.note ? <span className="ml-1 text-xs text-slate-500">· {n.note}</span> : null}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <b className="tabular-nums">{n.quantity}개</b>
+                          <form action={setImportNeedDone}>
+                            <input type="hidden" name="id" value={n.id} />
+                            <input type="hidden" name="done" value={n.status === "done" ? "0" : "1"} />
+                            <Button type="submit" size="sm" variant="secondary">
+                              {n.status === "done" ? "되돌리기" : "처리 완료"}
+                            </Button>
+                          </form>
+                          <form action={deleteImportNeed}>
+                            <input type="hidden" name="id" value={n.id} />
+                            <ConfirmButton size="sm" variant="secondary" message="이 항목을 목록에서 삭제할까요?">
+                              삭제
+                            </ConfirmButton>
+                          </form>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {doneNeeds.length > 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    <Link className="underline" href={showDone ? "/import-requests#needs" : "/import-requests?showdone=1#needs"}>
+                      {showDone ? "처리 완료 항목 숨기기" : `처리 완료 ${doneNeeds.length}건 보기`}
+                    </Link>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 보기 선택 */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
