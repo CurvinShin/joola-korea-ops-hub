@@ -219,7 +219,11 @@ export default async function OrderHistoryPage({
                 const itemsSubtotal = items.reduce((s, it) => s + Number(it.unit_price) * it.quantity, 0);
                 const shippingFee = Number(o.auto_shipping_fee ?? 0) + Number(o.manual_shipping_fee ?? 0);
                 const isConfirmed = o.confirmed_total_amount != null;
-                const grandTotal = isConfirmed ? Number(o.confirmed_total_amount) : itemsSubtotal + shippingFee;
+                // 견적서와 같게 세액(공급가액의 10%)을 따로 보여준다. 배송비는 부가세 포함 금액으로 저장돼 있다.
+                const itemsVat = items.reduce((s, it) => s + Math.round(Number(it.unit_price) * it.quantity * 0.1), 0);
+                const shippingSupply = Math.round(shippingFee / 1.1);
+                const shippingVat = shippingFee - shippingSupply;
+                const grandTotal = isConfirmed ? Number(o.confirmed_total_amount) : itemsSubtotal + itemsVat + shippingFee;
                 const summaryNames = items
                   .map((it) => it.products?.name)
                   .filter(Boolean)
@@ -258,6 +262,7 @@ export default async function OrderHistoryPage({
                             <th className="py-1 text-right font-normal">수량</th>
                             <th className="py-1 text-right font-normal">공급가</th>
                             <th className="py-1 text-right font-normal">합계</th>
+                            <th className="py-1 text-right font-normal">세액</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -271,6 +276,7 @@ export default async function OrderHistoryPage({
                               <td className="py-1.5 text-right">{it.quantity}</td>
                               <td className="py-1.5 text-right">{currency(Number(it.unit_price))}</td>
                               <td className="py-1.5 text-right">{currency(Number(it.unit_price) * it.quantity)}</td>
+                              <td className="py-1.5 text-right">{currency(Math.round(Number(it.unit_price) * it.quantity * 0.1))}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -282,13 +288,21 @@ export default async function OrderHistoryPage({
                           <span>{currency(itemsSubtotal)}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
-                          <span>국내배송비</span>
-                          <span>{shippingFee > 0 ? currency(shippingFee) : "—"}</span>
+                          <span>국내배송비 (공급가)</span>
+                          <span>{shippingFee > 0 ? currency(shippingSupply) : "—"}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>부가세 (10%)</span>
+                          <span>{currency(itemsVat + shippingVat)}</span>
                         </div>
                         <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900">
-                          <span>{isConfirmed ? "확정 금액" : "예상 금액"}</span>
+                          <span>{isConfirmed ? "확정 금액" : "예상 금액 (부가세 포함)"}</span>
                           <span>{currency(grandTotal)}</span>
                         </div>
+                        <p className="text-[11px] text-slate-400">
+                          견적서 1건당 부가세 포함 500만원 이상 주문은 국내배송비가 면제됩니다. 같은 날 여러 건의 합계는
+                          면제 대상이 아닙니다.
+                        </p>
                         {!isConfirmed && (
                           <p className="text-[11px] text-slate-400">
                             예상 금액입니다. 입금하실 최종 금액은 이메일로 받으신 견적서를 확인해주세요.
