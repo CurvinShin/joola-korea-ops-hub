@@ -20,6 +20,14 @@ import { dealerOrderStatusLabel } from "@/lib/utils/labels";
 // which knows to restore stock.
 const POST_CONFIRM_STATUSES = ["confirmed", "shipped", "delivered"] as const;
 
+// 금액 입력칸 표시용 — 상태에는 숫자만 저장하고(저장/계산은 그대로), 화면에는 천 단위 쉼표를 붙여 보여준다.
+function digitsOnly(v: string): string {
+  return v.replace(/[^\d]/g, "");
+}
+function withCommas(v: string): string {
+  return v === "" ? "" : Number(v).toLocaleString("en-US");
+}
+
 export function DealerOrderRowActions({
   orderId,
   status,
@@ -98,22 +106,22 @@ export function DealerOrderRowActions({
       {status === "draft" ? (
         <div className="flex items-center gap-1.5">
           <Input
-            type="number"
-            min={0}
+            type="text"
+            inputMode="numeric"
             placeholder="추가 배송비"
-            value={shippingInput}
-            onChange={(e) => setShippingInput(e.target.value)}
+            value={withCommas(shippingInput)}
+            onChange={(e) => setShippingInput(digitsOnly(e.target.value))}
             className="!w-28 py-1 text-xs"
             disabled={isPending}
           />
           <div className="flex flex-col items-start gap-0.5">
             <span className="text-[10px] leading-none text-slate-400">확정총액(배송비포함)</span>
             <Input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               title="견적서(배송비 포함) 금액과 일치시키려면 여기서 직접 고치세요"
-              value={totalInput}
-              onChange={(e) => setTotalInput(e.target.value)}
+              value={withCommas(totalInput)}
+              onChange={(e) => setTotalInput(digitsOnly(e.target.value))}
               className="!w-32 py-1 text-xs font-medium"
               disabled={isPending}
             />
@@ -165,10 +173,10 @@ export function DealerOrderRowActions({
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] leading-none text-slate-400">확정총액 수정</span>
               <Input
-                type="number"
-                min={0}
-                value={confirmedTotalInput}
-                onChange={(e) => setConfirmedTotalInput(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={withCommas(confirmedTotalInput)}
+                onChange={(e) => setConfirmedTotalInput(digitsOnly(e.target.value))}
                 className="!w-32 py-1 text-xs font-medium"
                 disabled={isPending}
               />
