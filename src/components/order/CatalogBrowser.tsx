@@ -113,7 +113,11 @@ export function CatalogBrowser({
           {selectedPromo && (
             <div className="mt-3 text-xs text-amber-900">
               <p>
-                {shortDate(selectedPromo.startsOn)} ~ {shortDate(selectedPromo.endsOn)} · 행사 소비자가{" "}
+                {shortDate(selectedPromo.startsOn)} ~ {shortDate(selectedPromo.endsOn)}
+                {selectedPromo.dealerOrderUntil &&
+                  selectedPromo.dealerOrderUntil !== selectedPromo.endsOn &&
+                  ` (딜러 주문 마감 ${shortDate(selectedPromo.dealerOrderUntil)})`}{" "}
+                · 행사 소비자가{" "}
                 {currency(selectedPromo.promoPrice)} · 공급가 {currency(promoUnitPrice(selectedPromo))}
                 {selectedPromo.maxQtyPerDealer != null &&
                   ` · 딜러당 최대 ${selectedPromo.maxQtyPerDealer}개 (행사 기간 누적)`}

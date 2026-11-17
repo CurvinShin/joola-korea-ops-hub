@@ -77,6 +77,21 @@ export function PromotionForm({
       </div>
 
       <div>
+        <Label htmlFor="dealer_order_until">딜러 주문 마감일 (비워두면 종료일까지)</Label>
+        <Input
+          id="dealer_order_until"
+          name="dealer_order_until"
+          type="date"
+          defaultValue={defaultValues?.dealer_order_until ?? ""}
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          프로모션 기간은 그대로 두고, 딜러가 주문 화면에서 행사가로 주문할 수 있는 마지막 날만 앞당깁니다
+          (예: 블랙프라이데이 11/2~11/15, 딜러 주문 11/13까지). 마감 다음 날부터 딜러 화면에서 행사가가 사라지고,
+          담당자가 기존 주문을 고칠 때는 종료일까지 행사가가 유지됩니다.
+        </p>
+      </div>
+
+      <div>
         <Label htmlFor="sku_list">적용 상품 SKU (쉼표, 줄바꿈으로 구분)</Label>
         <Textarea
           id="sku_list"

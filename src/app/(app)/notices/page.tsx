@@ -32,7 +32,7 @@ export default async function NoticesPage({
     supabase.from("dealers").select("id, name, classification, status").order("name"),
     supabase
       .from("product_promotions")
-      .select("id, name, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on")
+      .select("id, name, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on, dealer_order_until")
       .order("starts_on", { ascending: false }),
     supabase.from("notice_acknowledgments").select("notice_id, dealer_id"),
     supabase.from("notice_dealer_targets").select("notice_id, dealer_id"),

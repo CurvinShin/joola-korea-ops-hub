@@ -467,6 +467,8 @@ export interface ProductPromotion {
   max_qty_per_dealer: number | null;
   starts_on: string;
   ends_on: string;
+  // 딜러 주문 마감일(0055). null이면 ends_on까지 주문 가능.
+  dealer_order_until: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;

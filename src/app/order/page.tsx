@@ -49,12 +49,12 @@ export default async function OrderPage({
       .eq("dealer_id", profile.dealer_id)
       .order("order_date", { ascending: false })
       .limit(20),
-    // 딜러에게는 RLS가 "활성 + 오늘이 기간 안"인 프로모션만 돌려준다 — 예정/종료된
-    // 건 여기서 따로 거르지 않아도 안 보인다.
+    // 딜러에게는 RLS가 "활성 + 오늘이 시작일 ~ 딜러 주문 마감일(없으면 종료일) 안"인
+    // 프로모션만 돌려준다(0055) — 예정/마감/종료된 건 여기서 따로 거르지 않아도 안 보인다.
     supabase
       .from("product_promotions")
       .select(
-        "id, name, promo_group, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on, product_promotion_items(product_id)"
+        "id, name, promo_group, promo_price, discount_rate_percent, max_qty_per_dealer, starts_on, ends_on, dealer_order_until, product_promotion_items(product_id)"
       )
       .order("starts_on"),
   ]);
@@ -68,6 +68,7 @@ export default async function OrderPage({
     maxQtyPerDealer: r.max_qty_per_dealer,
     startsOn: r.starts_on,
     endsOn: r.ends_on,
+    dealerOrderUntil: r.dealer_order_until ?? null,
     productIds: (r.product_promotion_items ?? []).map((i: { product_id: string }) => i.product_id),
   }));
 

@@ -8,6 +8,7 @@ import { Table, Thead, Tr, Th, Td } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { PromotionForm } from "@/components/promotions/PromotionForm";
 import { PromotionAnnounceModal } from "@/components/notices/PromotionAnnounceModal";
+import { promoPhase } from "@/lib/utils/promo-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +107,7 @@ export default async function PromotionsPage({
                 {rows.map((r) => {
                   const itemCount = (r as unknown as { product_promotion_items: { count: number }[] })
                     .product_promotion_items?.[0]?.count ?? 0;
-                  const inWindow = today >= r.starts_on && today <= r.ends_on;
+                  const phase = promoPhase(r, today);
                   return (
                     <Tr key={r.id}>
                       <Td>{r.name}</Td>
@@ -116,14 +117,19 @@ export default async function PromotionsPage({
                       <Td>{r.max_qty_per_dealer ?? "제한 없음"}</Td>
                       <Td className="text-xs">
                         {r.starts_on} ~ {r.ends_on}
+                        {r.dealer_order_until && r.dealer_order_until !== r.ends_on && (
+                          <div className="text-amber-700">딜러 주문 마감 {r.dealer_order_until}</div>
+                        )}
                       </Td>
                       <Td>{itemCount}개</Td>
                       <Td>
-                        {!r.active ? (
+                        {phase === "inactive" ? (
                           <Badge tone="slate">비활성</Badge>
-                        ) : inWindow ? (
+                        ) : phase === "ordering" ? (
                           <Badge tone="green">진행중</Badge>
-                        ) : today < r.starts_on ? (
+                        ) : phase === "orderClosed" ? (
+                          <Badge tone="amber">딜러 주문 마감</Badge>
+                        ) : phase === "upcoming" ? (
                           <Badge tone="blue">예정</Badge>
                         ) : (
                           <Badge tone="slate">종료</Badge>

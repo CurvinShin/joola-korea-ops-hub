@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { validatePromoDates } from "@/lib/utils/promo-pricing";
 
 const promotionSchema = z.object({
   name: z.string().min(1, "프로모션 이름을 입력해주세요"),
@@ -13,6 +14,8 @@ const promotionSchema = z.object({
   max_qty_per_dealer: z.coerce.number().int().min(1).optional(),
   starts_on: z.string().min(1, "시작일을 입력해주세요"),
   ends_on: z.string().min(1, "종료일을 입력해주세요"),
+  // 비워 두면 종료일까지 딜러 주문 가능(0055).
+  dealer_order_until: z.string().optional(),
   active: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   sku_list: z.string().optional().or(z.literal("")),
 });
@@ -25,10 +28,10 @@ function parsePromotionForm(formData: FormData) {
   if (!parsed.success) {
     throw new Error(parsed.error.errors.map((e) => e.message).join(", "));
   }
-  if (parsed.data.ends_on < parsed.data.starts_on) {
-    throw new Error("종료일은 시작일보다 빠를 수 없습니다.");
-  }
-  return parsed.data;
+  const dealerOrderUntil = parsed.data.dealer_order_until || null;
+  const dateError = validatePromoDates(parsed.data.starts_on, parsed.data.ends_on, dealerOrderUntil);
+  if (dateError) throw new Error(dateError);
+  return { ...parsed.data, dealer_order_until: dealerOrderUntil };
 }
 
 // "600589, 600592\n600595" 처럼 콤마/줄바꿈/공백 섞어 붙여넣어도 다 받는다.
@@ -89,6 +92,7 @@ export async function createPromotion(formData: FormData) {
       max_qty_per_dealer: data.max_qty_per_dealer ?? null,
       starts_on: data.starts_on,
       ends_on: data.ends_on,
+      dealer_order_until: data.dealer_order_until,
       active: data.active ?? true,
     })
     .select("id")
@@ -115,6 +119,7 @@ export async function updatePromotion(id: string, formData: FormData) {
       max_qty_per_dealer: data.max_qty_per_dealer ?? null,
       starts_on: data.starts_on,
       ends_on: data.ends_on,
+      dealer_order_until: data.dealer_order_until,
       active: data.active ?? true,
       updated_at: new Date().toISOString(),
     })

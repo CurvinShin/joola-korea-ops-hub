@@ -2,6 +2,7 @@ import { Modal } from "@/components/ui/Modal";
 import { AnnounceForm } from "@/components/notices/AnnounceForm";
 import { announcePromotion } from "@/lib/actions/notices";
 import { calcHardgoodsPrice } from "@/lib/utils/pricing";
+import { dealerOrderDeadline } from "@/lib/utils/promo-pricing";
 
 const won = (n: number) => `${new Intl.NumberFormat("ko-KR").format(n)}원`;
 
@@ -13,6 +14,7 @@ type PromoRow = {
   max_qty_per_dealer: number | null;
   starts_on: string;
   ends_on: string;
+  dealer_order_until?: string | null;
 };
 
 type DealerOption = { id: string; name: string; classification: string; status: string };
@@ -37,11 +39,13 @@ export function PromotionAnnounceModal({
   const promoPrice = Number(promo.promo_price);
   const rate = Number(promo.discount_rate_percent);
   const dealerPrice = calcHardgoodsPrice(promoPrice, rate);
+  const orderDeadline = dealerOrderDeadline(promo.ends_on, promo.dealer_order_until);
 
   const lines = [
     `${promo.name} 프로모션이 시작됩니다.`,
     "",
     `기간: ${promo.starts_on} ~ ${promo.ends_on}`,
+    ...(orderDeadline !== promo.ends_on ? [`딜러 주문 마감: ${orderDeadline} (이후 주문은 정상가)`] : []),
     `소비자가: ${won(promoPrice)} (VAT 포함)`,
     `딜러 할인: ${rate}% → 공급가 ${won(dealerPrice)} (VAT 별도)`,
     promo.max_qty_per_dealer ? `딜러당 구매 한도: ${promo.max_qty_per_dealer}개` : "딜러당 구매 한도: 제한 없음",
@@ -60,7 +64,7 @@ export function PromotionAnnounceModal({
         defaultTitle={`[프로모션] ${promo.name}`}
         defaultBody={lines.join("\n")}
         defaultPublishOn={today}
-        defaultExpiresOn={promo.ends_on}
+        defaultExpiresOn={orderDeadline}
         alreadyAnnouncedCount={alreadyAnnouncedCount}
       />
     </Modal>
